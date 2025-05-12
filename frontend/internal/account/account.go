@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"time"
 
 	"freenahiFront/internal/helper"
@@ -47,6 +48,24 @@ type BankAccount struct {
 
 // Create the transaction screen
 func NewAccountScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
+
+	accountTable := createAccountTable(app)
+
+	manageButton := widget.NewButton(lang.L("Manage account with Powens"), func() {
+
+		webviewURL := getWebviewManageConnexionLink(app)
+
+		if err := app.OpenURL(webviewURL); err != nil {
+			helper.Logger.Error().Err(err).Msg("Cannot open the URL")
+		}
+	})
+
+	screen := container.NewBorder(manageButton, nil, nil, nil, accountTable)
+	return screen
+}
+
+// Create the table of transaction
+func createAccountTable(app fyne.App) *widget.Table {
 
 	var (
 		accountNameLabel         = widget.NewLabel(lang.L("Account name"))
@@ -266,4 +285,35 @@ func getAccounts(app fyne.App) []BankAccount {
 	}
 
 	return accounts
+}
+
+// ToDo: modify the function to return an error and display it if sth went wrong in the backend
+// Call the backend endpoint "/webview/manageConnectionLink" and get the webview URL
+func getWebviewManageConnexionLink(app fyne.App) *url.URL {
+
+	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
+	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
+	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
+
+	targetURL := fmt.Sprintf("%s://%s:%s/webview/manageConnectionLink/", backendProtocol, backendIp, backendPort)
+	resp, err := http.Get(targetURL)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("ReadAll error")
+		return nil
+	}
+
+	webviewURL, err := url.Parse(string(body))
+
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("URL parse error")
+		return nil
+	}
+
+	return webviewURL
 }

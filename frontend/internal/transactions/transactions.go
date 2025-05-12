@@ -50,6 +50,14 @@ type Transaction struct {
 // Create the transaction screen
 func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 
+	transactionTable := createTransactionTable(app, win)
+
+	return container.NewBorder(nil, nil, nil, nil, transactionTable)
+}
+
+// Create the transaction table
+func createTransactionTable(app fyne.App, win fyne.Window) *widget.Table {
+
 	var (
 		pinnedLabel = widget.NewLabel(lang.L("Pinned"))
 
