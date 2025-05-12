@@ -9,6 +9,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"github.com/rs/zerolog"
 )
@@ -106,4 +107,39 @@ func MakeTray(app fyne.App, win fyne.Window) {
 		)
 		desk.SetSystemTrayMenu(menu)
 	}
+}
+
+// Center align the objectToAdd by adding 2 spacers. To be used with an horizontal box
+func AddHAligned(object fyne.CanvasObject, objectToAdd fyne.CanvasObject) {
+	object.(*fyne.Container).Add(layout.NewSpacer())
+	object.(*fyne.Container).Add(objectToAdd)
+	object.(*fyne.Container).Add(layout.NewSpacer())
+}
+
+// Add spacing to value to make it more easily readable
+// Ex: From 123456.78 to 123 456.78
+func ValueSpacer(value string) string {
+
+	if len(value) < 7 {
+		return value
+	}
+
+	var modifiedValue string
+	for pos, char := range reverse(value) {
+		if pos%3 == 0 && pos > 5 {
+			modifiedValue = modifiedValue + " "
+		}
+		modifiedValue = modifiedValue + string(char)
+	}
+	return reverse(modifiedValue)
+}
+
+// reverse a string: from "abc" to "cba"
+func reverse(s string) string {
+	rns := []rune(s)
+	for i, j := 0, len(rns)-1; i < j; i, j = i+1, j-1 {
+		rns[i], rns[j] = rns[j], rns[i]
+	}
+
+	return string(rns)
 }

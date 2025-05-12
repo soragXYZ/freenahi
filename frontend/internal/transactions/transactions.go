@@ -4,20 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"freenahiFront/internal/helper"
-	"freenahiFront/internal/settings"
 	"io"
 	"math"
 	"net/http"
 	"slices"
 	"time"
 
+	"freenahiFront/internal/helper"
+	"freenahiFront/internal/settings"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/validation"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/lang"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -31,6 +31,7 @@ const (
 	typeColumn
 	detailsColumn
 	deleteColumn
+	numberOfColumn
 
 	unselectTime = 200 * time.Millisecond
 	detailsRegex = `^[A-Za-z0-9_-]{1,50}$`
@@ -59,7 +60,7 @@ func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 		testValueLabelSize = widget.NewLabel("-123456123.00").MinSize().Width
 
 		typeLabel         = widget.NewLabel(lang.L("Type"))
-		testTypeLabelSize = widget.NewLabel("loan_repayment").MinSize().Width
+		testTypeLabelSize = widget.NewLabel(lang.L("loan_repayment")).MinSize().Width
 
 		detailsLabel         = widget.NewLabel(lang.L("Details"))
 		testDetailsLabelSize = widget.NewLabel("CB DEBIT IMMEDIAT UBER EATS").MinSize().Width
@@ -80,7 +81,7 @@ func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 
 	txList := widget.NewTable(
 		func() (int, int) {
-			return len(txs), 6 // The number of column to display, ie the number of iota const value (icon, date, value, type, details, delete)
+			return len(txs), numberOfColumn
 		},
 		func() fyne.CanvasObject {
 			return container.NewHBox(widget.NewLabel("template"))
@@ -94,23 +95,17 @@ func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 			if id.Row == 0 {
 				switch id.Col {
 				case pinnedColumn:
-					AddHAligned(o, pinnedLabel)
-
+					helper.AddHAligned(o, pinnedLabel)
 				case dateColumn:
-					AddHAligned(o, dateLabel)
-
+					helper.AddHAligned(o, dateLabel)
 				case valueColumn:
-					AddHAligned(o, valueLabel)
-
+					helper.AddHAligned(o, valueLabel)
 				case typeColumn:
-					AddHAligned(o, typeLabel)
-
+					helper.AddHAligned(o, typeLabel)
 				case detailsColumn:
-					AddHAligned(o, detailsLabel)
-
+					helper.AddHAligned(o, detailsLabel)
 				case deleteColumn:
-					AddHAligned(o, deleteLabel)
-
+					helper.AddHAligned(o, deleteLabel)
 				default:
 					helper.Logger.Fatal().Msg("Too much column in the grid")
 				}
@@ -121,9 +116,9 @@ func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 			switch id.Col {
 			case pinnedColumn:
 				if txs[id.Row].Pinned {
-					AddHAligned(o, widget.NewIcon(theme.RadioButtonCheckedIcon()))
+					helper.AddHAligned(o, widget.NewIcon(theme.RadioButtonCheckedIcon()))
 				} else {
-					AddHAligned(o, widget.NewIcon(theme.RadioButtonIcon()))
+					helper.AddHAligned(o, widget.NewIcon(theme.RadioButtonIcon()))
 				}
 
 			case dateColumn:
@@ -131,22 +126,30 @@ func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 				if err != nil {
 					helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", txs[id.Row].Date)
 				}
-				AddHAligned(o, widget.NewLabel(parsedTxDate.Format("2006-01-02")))
+				helper.AddHAligned(o, widget.NewLabel(parsedTxDate.Format("2006-01-02")))
 
 			case valueColumn:
-				AddHAligned(o, widget.NewLabel(fmt.Sprintf("%.2f", txs[id.Row].Value)))
+				value := fmt.Sprintf("%.2f", txs[id.Row].Value)
+				valueText := widget.NewLabel(helper.ValueSpacer(value))
+
+				if txs[id.Row].Value > 0 {
+					valueText.Importance = widget.SuccessImportance
+				}
+
+				helper.AddHAligned(o, valueText)
 
 			case typeColumn:
 				// ToDo: display an icon instead of a text ? More user friendly
-				AddHAligned(o, widget.NewLabel(txs[id.Row].Transaction_type))
+				// Each type is here: https://docs.powens.com/api-reference/products/data-aggregation/bank-transactions#transactiontype-values
+				helper.AddHAligned(o, widget.NewLabel(lang.L(txs[id.Row].Transaction_type)))
 
 			case detailsColumn:
 				scroller := container.NewHScroll(widget.NewLabel(txs[id.Row].Original_wording))
 				scroller.SetMinSize(fyne.NewSize(testDetailsLabelSize, scroller.MinSize().Height))
-				AddHAligned(o, scroller)
+				helper.AddHAligned(o, scroller)
 
 			case deleteColumn:
-				AddHAligned(o, widget.NewIcon(theme.DeleteIcon()))
+				helper.AddHAligned(o, widget.NewIcon(theme.DeleteIcon()))
 
 			default:
 				helper.Logger.Fatal().Msg("Too much column in the transaction grid")
@@ -265,13 +268,6 @@ func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 	txList.StickyRowCount = 1 // Basically, we are setting a table header because the first row contains special data
 
 	return txList
-}
-
-// Center align the objectToAdd by adding 2 spacers. To be used with an horizontal box
-func AddHAligned(object fyne.CanvasObject, objectToAdd fyne.CanvasObject) {
-	object.(*fyne.Container).Add(layout.NewSpacer())
-	object.(*fyne.Container).Add(objectToAdd)
-	object.(*fyne.Container).Add(layout.NewSpacer())
 }
 
 // ToDo: modify the function to return an error and display it if sth went wrong in the backend
