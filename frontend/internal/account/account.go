@@ -47,7 +47,7 @@ type BankAccount struct {
 }
 
 // Create the transaction screen
-func NewAccountScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
+func NewAccountScreen(app fyne.App) fyne.CanvasObject {
 
 	accountTable := createAccountTable(app)
 

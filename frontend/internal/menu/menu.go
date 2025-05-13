@@ -9,7 +9,10 @@ import (
 	"fyne.io/fyne/v2/lang"
 
 	"freenahiFront/internal/account"
+	financialassets "freenahiFront/internal/financialAssets"
+	"freenahiFront/internal/loan"
 	"freenahiFront/internal/settings"
+	"freenahiFront/internal/tools"
 	"freenahiFront/internal/topmenu"
 	"freenahiFront/internal/transactions"
 	"freenahiFront/internal/welcome"
@@ -56,8 +59,11 @@ func NewTopMenu(app fyne.App, win fyne.Window) *fyne.MainMenu {
 func NewLeftMenu(app fyne.App, win fyne.Window) *container.AppTabs {
 	tabs := container.NewAppTabs(
 		container.NewTabItem("Welcome", welcome.NewWelcomeScreen()),
-		container.NewTabItem(lang.L("Accounts"), account.NewAccountScreen(app, win)),
+		container.NewTabItem(lang.L("Financial assets"), financialassets.NewFinancialAssetsScreen(app, win)),
+		container.NewTabItem(lang.L("Accounts"), account.NewAccountScreen(app)),
 		container.NewTabItem(lang.L("Transactions"), transactions.NewTransactionScreen(app, win)),
+		container.NewTabItem(lang.L("Loans"), loan.NewLoanScreen(app, win)),
+		container.NewTabItem(lang.L("Tools"), tools.NewToolsScreen(app, win)),
 	)
 	tabs.SetTabLocation(container.TabLocationLeading)
 
