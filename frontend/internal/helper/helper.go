@@ -117,6 +117,24 @@ func AddHAligned(object fyne.CanvasObject, objectToAdd fyne.CanvasObject) {
 }
 
 // Add spacing to value to make it more easily readable
+// Ex: From 123456 to 123 456
+func IntValueSpacer(value string) string {
+
+	if len(value) <= 4 {
+		return value
+	}
+
+	var modifiedValue string
+	for pos, char := range reverse(value) {
+		if pos%3 == 0 && pos >= 3 {
+			modifiedValue = modifiedValue + " "
+		}
+		modifiedValue = modifiedValue + string(char)
+	}
+	return reverse(modifiedValue)
+}
+
+// Add spacing to value to make it more easily readable
 // Ex: From 123456.78 to 123 456.78
 func ValueSpacer(value string) string {
 
