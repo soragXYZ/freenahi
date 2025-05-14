@@ -16,19 +16,9 @@ import (
 )
 
 const (
-	defaultRateValue = 2.0
-	minRate          = -10
-	maxRate          = 20
-	stepRate         = 0.1
-
-	defaultDurationValue = 5
-	minDuration          = 1
-	maxDuration          = 50
-	stepDuration         = 1
-
-	defaultCapitalValue = 10000
-	minCapital          = 0
-	stepCapital         = 1000
+	simpleInterestType int = iota
+	compoundInterestType
+	loanType
 )
 
 // Struct used to store the current valuation of the capital for the given period
@@ -40,210 +30,13 @@ type interest struct {
 func NewToolsScreen(app fyne.App, win fyne.Window) *container.AppTabs {
 
 	tabs := container.NewAppTabs(
-		container.NewTabItem(lang.L("Simple interest"), newSimpleInterestView()),
-		container.NewTabItem(lang.L("Compound interest"), newCompoundInterestView()),
+		container.NewTabItem(lang.L("Simple interest"), createViewContainer(simpleInterestType)),
+		container.NewTabItem(lang.L("Compound interest"), createViewContainer(compoundInterestType)),
+		// container.NewTabItem(lang.L("Loan"), newLoanView()),
 	)
 	tabs.SetTabLocation(container.TabLocationTop)
 
 	return tabs
-}
-
-// Create the "Simple Interest" view, used as a tab
-func newSimpleInterestView() *fyne.Container {
-
-	rateData, rateContainer, durationData, durationContainer, capitalData, capitalContainer := createUserInput()
-
-	resultLabel := widget.NewLabel("X")
-	resultLabel.TextStyle.Bold = true
-	resultLabel.SizeName = theme.SizeNameHeadingText
-	resultLabel.Alignment = fyne.TextAlignCenter
-
-	multiplierLabel := widget.NewLabel("X")
-	multiplierLabel.TextStyle.Bold = true
-	multiplierLabel.Alignment = fyne.TextAlignCenter
-	multiplierLabel.Importance = widget.SuccessImportance
-
-	simpleInterestExplanation := widget.NewLabel(lang.L("Simple interest explanation"))
-
-	durationHeaderLabel := widget.NewLabel(lang.L("Duration"))
-	durationHeaderLabel.Alignment = fyne.TextAlignCenter
-
-	valueHeaderLabel := widget.NewLabel(lang.L("Value"))
-	valueHeaderLabel.Alignment = fyne.TextAlignCenter
-
-	headerContainer := container.NewVBox(container.NewGridWithColumns(2, durationHeaderLabel, valueHeaderLabel))
-
-	capitalTableContainer := container.NewScroll(container.NewHBox())
-	capitalTableContainer.SetMinSize(fyne.NewSize(capitalTableContainer.MinSize().Width, 100))
-
-	// This function is called when there is a change in the rate, duration, or capital
-	// => we update displayed results when the user modifies some values
-	dataListener := binding.NewDataListener(func() {
-		rate, _ := rateData.Get()
-		duration, _ := durationData.Get()
-		capital, _ := capitalData.Get()
-
-		// Replace incorrect values if needed
-		if rate < minRate {
-			rateData.Set(minRate)
-		} else if rate > maxRate {
-			rateData.Set(maxRate)
-		}
-
-		if duration < minDuration {
-			durationData.Set(minDuration)
-		} else if duration > maxDuration {
-			durationData.Set(maxDuration)
-		}
-
-		if capital < minCapital {
-			capitalData.Set(minCapital)
-		}
-
-		result := int(math.Round(float64(capital) + float64(capital)*rate/100*float64(duration)))
-		multiplier := float64(result) / float64(capital)
-
-		var array []interest
-
-		for i := range duration + 1 {
-			array = append(array, interest{
-				value:    int(math.Round(float64(capital) + float64(capital)*rate/100*float64(i))),
-				duration: i,
-			})
-		}
-
-		// Recreate the table with new data
-		capitalTableContainer.Content = createSimpleCapitalTable(array)
-		capitalTableContainer.Refresh()
-
-		resultLabel.SetText(fmt.Sprintf("%s : %s", lang.L("Final capital"), helper.IntValueSpacer(fmt.Sprintf("%d", result))))
-		resultLabel.Refresh()
-		multiplierLabel.SetText(fmt.Sprintf("%s: x%0.3f", lang.L("Multiplier"), multiplier))
-		multiplierLabel.Refresh()
-	})
-
-	rateData.AddListener(dataListener)
-	durationData.AddListener(dataListener)
-	capitalData.AddListener(dataListener)
-
-	return container.NewVBox(
-		rateContainer,
-		durationContainer,
-		capitalContainer,
-		widget.NewSeparator(),
-		layout.NewSpacer(),
-		resultLabel,
-		multiplierLabel,
-		layout.NewSpacer(),
-		widget.NewSeparator(),
-		headerContainer,
-		capitalTableContainer,
-		widget.NewSeparator(),
-		container.NewHScroll(simpleInterestExplanation),
-	)
-}
-
-// Create the compound interest view, used as a tab
-func newCompoundInterestView() *fyne.Container {
-
-	rateData, rateContainer, durationData, durationContainer, capitalData, capitalContainer := createUserInput()
-
-	resultLabel := widget.NewLabel("X")
-	resultLabel.TextStyle.Bold = true
-	resultLabel.SizeName = theme.SizeNameHeadingText
-	resultLabel.Alignment = fyne.TextAlignCenter
-
-	multiplierLabel := widget.NewLabel("X")
-	multiplierLabel.TextStyle.Bold = true
-	multiplierLabel.Alignment = fyne.TextAlignCenter
-	multiplierLabel.Importance = widget.SuccessImportance
-
-	compoundInterestExplanation := widget.NewLabel(lang.L("Compound interest explanation"))
-
-	durationHeaderLabel := widget.NewLabel(lang.L("Duration"))
-	durationHeaderLabel.Alignment = fyne.TextAlignCenter
-
-	valueHeaderLabel := widget.NewLabel(lang.L("Value"))
-	valueHeaderLabel.Alignment = fyne.TextAlignCenter
-
-	profitHeaderLabel := widget.NewLabel(lang.L("Profit"))
-	profitHeaderLabel.Alignment = fyne.TextAlignCenter
-
-	headerContainer := container.NewVBox(container.NewGridWithColumns(
-		3,
-		durationHeaderLabel,
-		valueHeaderLabel,
-		profitHeaderLabel,
-	))
-
-	capitalTableContainer := container.NewScroll(container.NewHBox())
-	capitalTableContainer.SetMinSize(fyne.NewSize(capitalTableContainer.MinSize().Width, 100))
-
-	// This function is called when there is a change in the rate, duration, or capital
-	// => we update the result when the user modifies values
-	dataListener := binding.NewDataListener(func() {
-		rate, _ := rateData.Get()
-		duration, _ := durationData.Get()
-		capital, _ := capitalData.Get()
-
-		// Replace incorrect values if needed
-		if rate < minRate {
-			rateData.Set(minRate)
-		} else if rate > maxRate {
-			rateData.Set(maxRate)
-		}
-
-		if duration < minDuration {
-			durationData.Set(minDuration)
-		} else if duration > maxDuration {
-			durationData.Set(maxDuration)
-		}
-
-		if capital < minCapital {
-			capitalData.Set(minCapital)
-		}
-
-		result := int(math.Round(float64(capital) * math.Pow(1+rate/100, float64(duration))))
-		multiplier := float64(result) / float64(capital)
-
-		var array []interest
-
-		for i := range duration + 1 {
-			array = append(array, interest{
-				value:    int(math.Round(float64(capital) * math.Pow(1+rate/100, float64(i)))),
-				duration: i,
-			})
-		}
-
-		// Recreate the table with new data
-		capitalTableContainer.Content = createCompoundCapitalTable(array)
-		capitalTableContainer.Refresh()
-
-		resultLabel.SetText(fmt.Sprintf("%s : %d", lang.L("Final capital"), result))
-		resultLabel.Refresh()
-		multiplierLabel.SetText(fmt.Sprintf("%s: x%0.3f", lang.L("Multiplier"), multiplier))
-		multiplierLabel.Refresh()
-	})
-
-	rateData.AddListener(dataListener)
-	durationData.AddListener(dataListener)
-	capitalData.AddListener(dataListener)
-
-	return container.NewVBox(
-		rateContainer,
-		durationContainer,
-		capitalContainer,
-		widget.NewSeparator(),
-		layout.NewSpacer(),
-		resultLabel,
-		multiplierLabel,
-		layout.NewSpacer(),
-		widget.NewSeparator(),
-		headerContainer,
-		capitalTableContainer,
-		widget.NewSeparator(),
-		container.NewHScroll(compoundInterestExplanation),
-	)
 }
 
 // Create the table of transaction for simple interest
@@ -290,7 +83,23 @@ func createCompoundCapitalTable(array []interest) *fyne.Container {
 	return mainContainer
 }
 
-func createUserInput() (binding.ExternalFloat, *fyne.Container, binding.ExternalInt, *fyne.Container, binding.ExternalInt, *fyne.Container) {
+func createViewContainer(toolType int) *fyne.Container {
+
+	const (
+		defaultRateValue = 2.0
+		minRate          = -10
+		maxRate          = 20
+		stepRate         = 0.1
+
+		defaultDurationValue = 5
+		minDuration          = 1
+		maxDuration          = 50
+		stepDuration         = 1
+
+		defaultCapitalValue = 10000
+		minCapital          = 0
+		stepCapital         = 1000
+	)
 
 	// ========================================================================
 	// Rate
@@ -368,5 +177,136 @@ func createUserInput() (binding.ExternalFloat, *fyne.Container, binding.External
 
 	capitalContainer := container.NewGridWithColumns(3, capitalLabel, capitalEntry, capitalIncreaseDecreaseButtons)
 
-	return rateData, rateContainer, durationData, durationContainer, capitalData, capitalContainer
+	// ========================================================================
+	// Capital
+	resultLabel := widget.NewLabel("X")
+	resultLabel.TextStyle.Bold = true
+	resultLabel.SizeName = theme.SizeNameHeadingText
+	resultLabel.Alignment = fyne.TextAlignCenter
+
+	multiplierLabel := widget.NewLabel("X")
+	multiplierLabel.TextStyle.Bold = true
+	multiplierLabel.Alignment = fyne.TextAlignCenter
+	multiplierLabel.Importance = widget.SuccessImportance
+
+	durationHeaderLabel := widget.NewLabel(lang.L("Duration"))
+	durationHeaderLabel.Alignment = fyne.TextAlignCenter
+
+	valueHeaderLabel := widget.NewLabel(lang.L("Value"))
+	valueHeaderLabel.Alignment = fyne.TextAlignCenter
+
+	var explanation *widget.Label
+	var headerContainer *fyne.Container
+
+	switch toolType {
+	case simpleInterestType:
+		explanation = widget.NewLabel(lang.L("Simple interest explanation"))
+
+		headerContainer = container.NewVBox(container.NewGridWithColumns(
+			2,
+			durationHeaderLabel,
+			valueHeaderLabel,
+		))
+
+	case compoundInterestType:
+		explanation = widget.NewLabel(lang.L("Compound interest explanation"))
+
+		profitHeaderLabel := widget.NewLabel(lang.L("Profit"))
+		profitHeaderLabel.Alignment = fyne.TextAlignCenter
+
+		headerContainer = container.NewVBox(container.NewGridWithColumns(
+			3,
+			durationHeaderLabel,
+			valueHeaderLabel,
+			profitHeaderLabel,
+		))
+	}
+
+	capitalTableContainer := container.NewScroll(container.NewHBox())
+	capitalTableContainer.SetMinSize(fyne.NewSize(capitalTableContainer.MinSize().Width, 100))
+
+	// This function is called when there is a change in the rate, duration, or capital
+	// => we update displayed results when the user modifies some values
+	dataListener := binding.NewDataListener(func() {
+		rate, _ := rateData.Get()
+		duration, _ := durationData.Get()
+		capital, _ := capitalData.Get()
+
+		// Replace incorrect values if needed
+		if rate < minRate {
+			rateData.Set(minRate)
+		} else if rate > maxRate {
+			rateData.Set(maxRate)
+		}
+
+		if duration < minDuration {
+			durationData.Set(minDuration)
+		} else if duration > maxDuration {
+			durationData.Set(maxDuration)
+		}
+
+		if capital < minCapital {
+			capitalData.Set(minCapital)
+		}
+
+		var array []interest
+		var value int
+
+		for i := range duration + 1 {
+
+			switch toolType {
+			case simpleInterestType:
+				value = int(math.Round(float64(capital) + float64(capital)*rate/100*float64(i)))
+
+			case compoundInterestType:
+				value = int(math.Round(float64(capital) * math.Pow(1+rate/100, float64(i))))
+			}
+			array = append(array, interest{
+				value:    value,
+				duration: i,
+			})
+		}
+
+		var result int
+		// Recreate the table with new data
+		switch toolType {
+		case simpleInterestType:
+			result = int(math.Round(float64(capital) + float64(capital)*rate/100*float64(duration)))
+			capitalTableContainer.Content = createSimpleCapitalTable(array)
+
+		case compoundInterestType:
+			result = int(math.Round(float64(capital) * math.Pow(1+rate/100, float64(duration))))
+			capitalTableContainer.Content = createCompoundCapitalTable(array)
+		}
+
+		multiplier := float64(result) / float64(capital)
+
+		capitalTableContainer.Refresh()
+
+		resultLabel.SetText(fmt.Sprintf("%s : %s", lang.L("Final capital"), helper.IntValueSpacer(fmt.Sprintf("%d", result))))
+		resultLabel.Refresh()
+		multiplierLabel.SetText(fmt.Sprintf("%s: x%0.3f", lang.L("Multiplier"), multiplier))
+		multiplierLabel.Refresh()
+	})
+
+	rateData.AddListener(dataListener)
+	durationData.AddListener(dataListener)
+	capitalData.AddListener(dataListener)
+
+	return container.NewVBox(
+		rateContainer,
+		durationContainer,
+		capitalContainer,
+		widget.NewSeparator(),
+		layout.NewSpacer(),
+		resultLabel,
+		multiplierLabel,
+		layout.NewSpacer(),
+		widget.NewSeparator(),
+		headerContainer,
+		capitalTableContainer,
+		widget.NewSeparator(),
+		container.NewHScroll(explanation),
+	)
+
 }
