@@ -18,7 +18,7 @@ CREATE TABLE loan (
     last_payment_date VARCHAR(255) NOT NULL,
     account_label VARCHAR(255) NOT NULL,
     insurance_label VARCHAR(255) NOT NULL,
-    insurance_amount VARCHAR(255) NOT NULL,
+    insurance_amount FLOAT NOT NULL,
     insurance_rate FLOAT NOT NULL,
     duration INT UNSIGNED NOT NULL,
     loan_type VARCHAR(255) NOT NULL,

@@ -26,7 +26,7 @@ type Loan struct {
 	Last_payment_date    string  `json:"last_payment_date"`
 	Account_label        string  `json:"account_label"`
 	Insurance_label      string  `json:"insurance_label"`
-	Insurance_amount     string  `json:"insurance_amount"`
+	Insurance_amount     float32 `json:"insurance_amount"`
 	Insurance_rate       float32 `json:"insurance_rate"`
 	Duration             uint    `json:"duration"`
 	Loan_type            string  `json:"type"`
