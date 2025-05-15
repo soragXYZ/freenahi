@@ -120,6 +120,7 @@
 	"Settings": "Settings",
 	"Simple interest": "Simple interest",
 	"Simple interest explanation": "Simple interest is often used for short-term investments (less than one year).\nOn bonds, term deposits and sometimes certain Crowdfunding and Crowdlending platforms, depending on the investment choice, the interest will be simple or capitalized.\n\nFor simple interest, the sum of interest received is determined by the initial amount invested, regardless of the investment period.\nRegardless of whether the investment lasts 12, 24 or 36 months, the annual interest remains the same.\n\nThis is because the interest is calculated exclusively on the initial principal amount and is distributed at the end of each year.",
+	"Subscription date": "Subscription date",
 	"summary_card": "summary card",
 	"Thanks for using this application!": "Thanks for using this application!",
 	"Theme details": "Set theme color to dark or light",

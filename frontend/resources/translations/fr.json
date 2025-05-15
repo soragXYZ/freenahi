@@ -120,6 +120,7 @@
 	"Settings": "Paramètres",
 	"Simple interest": "Intérêts simples",
 	"Simple interest explanation": "Les intérêts simples sont souvent utilisés dans le cadre de placements à court terme (moins d'une année).\nSur les obligations, comptes à terme et parfois certaines plateformes de Crowdfunding, Crowdlending, en fonction du choix de placement les intérêts seront simples ou capitalisés.\n\nPour les intérêts simples, la somme des intérêts reçus est déterminée par le montant initial investi, indépendamment de la période de l'investissement.\nPeu importe si l'investissement dure 12, 24 ou 36 mois, les intérêts annuels restent identiques.\n\nCela s'explique par le fait que les intérêts sont calculés exclusivement sur le montant principal initial et sont distribués à la conclusion de chaque année.",
+	"Subscription date": "Date de souscription",
 	"summary_card": "aggrégé carte",
 	"Thanks for using this application!": "Merci d'utiliser cette application !",
 	"Theme details": "Mettre le thème sombre ou clair",
