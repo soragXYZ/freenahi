@@ -21,34 +21,32 @@ const (
 	loanType
 )
 
-// Struct used to store the current valuation of the capital for the given period
-type interest struct {
-	duration, value int
-}
-
 // Create the "Tools" view
 func NewToolsScreen(app fyne.App, win fyne.Window) *container.AppTabs {
 
 	tabs := container.NewAppTabs(
 		container.NewTabItem(lang.L("Simple interest"), createViewContainer(simpleInterestType)),
 		container.NewTabItem(lang.L("Compound interest"), createViewContainer(compoundInterestType)),
-		// container.NewTabItem(lang.L("Loan"), newLoanView()),
+		container.NewTabItem(lang.L("Amortizable loan"), createViewContainer(loanType)),
 	)
 	tabs.SetTabLocation(container.TabLocationTop)
 
 	return tabs
 }
 
-// Create the table of transaction for simple interest
-func createSimpleCapitalTable(array []interest) *fyne.Container {
+// Create the table of interests for simple interest
+func createSimpleCapitalTable(rate float64, duration int, capital int) *fyne.Container {
 
 	mainContainer := container.NewVBox()
 
-	for i := range len(array) {
-		durationLabel := widget.NewLabel(strconv.Itoa(array[i].duration))
+	for i := range duration + 1 {
+
+		durationLabel := widget.NewLabel(strconv.Itoa(i))
 		durationLabel.Alignment = fyne.TextAlignCenter
 
-		valueLabel := widget.NewLabel(helper.IntValueSpacer(strconv.Itoa(array[i].value)))
+		// V = C + C*r*n
+		value := int(math.Round(float64(capital) + float64(capital)*rate/100*float64(i)))
+		valueLabel := widget.NewLabel(helper.IntValueSpacer(strconv.Itoa(value)))
 		valueLabel.Alignment = fyne.TextAlignCenter
 
 		mainContainer.Add(container.NewGridWithColumns(2, durationLabel, valueLabel))
@@ -57,27 +55,61 @@ func createSimpleCapitalTable(array []interest) *fyne.Container {
 	return mainContainer
 }
 
-// Create the table of transaction for compound interest
-func createCompoundCapitalTable(array []interest) *fyne.Container {
+// Create the table of interests for compound interest
+func createCompoundCapitalTable(rate float64, duration int, capital int) *fyne.Container {
 
 	mainContainer := container.NewVBox()
 
-	for i := range len(array) {
-		durationLabel := widget.NewLabel(strconv.Itoa(array[i].duration))
+	for i := range duration + 1 {
+		durationLabel := widget.NewLabel(strconv.Itoa(i))
 		durationLabel.Alignment = fyne.TextAlignCenter
 
-		valueLabel := widget.NewLabel(helper.IntValueSpacer(strconv.Itoa(array[i].value)))
+		// V = C * (1+r)^n
+		value := int(math.Round(float64(capital) * math.Pow(1+rate/100, float64(i))))
+		valueLabel := widget.NewLabel(helper.IntValueSpacer(strconv.Itoa(value)))
 		valueLabel.Alignment = fyne.TextAlignCenter
 
 		var profitLabel *widget.Label
 		if i == 0 {
 			profitLabel = widget.NewLabel("0")
 		} else {
-			profitLabel = widget.NewLabel(helper.IntValueSpacer(strconv.Itoa(array[i].value - array[i-1].value)))
+			previousValue := int(math.Round(float64(capital) * math.Pow(1+rate/100, float64(i-1))))
+
+			profitLabel = widget.NewLabel(helper.IntValueSpacer(strconv.Itoa(value - previousValue)))
 		}
 		profitLabel.Alignment = fyne.TextAlignCenter
 
 		mainContainer.Add(container.NewGridWithColumns(3, durationLabel, valueLabel, profitLabel))
+	}
+
+	return mainContainer
+}
+
+// Create the table of costs for an amortizable loan
+func createLoanTable(rate float64, duration int, capital int) *fyne.Container {
+
+	mainContainer := container.NewVBox()
+
+	// m = [(C*r)/12] / [1-(1+(r/12))^-n]
+	mensuality := ((float64(capital) * (rate / 100.0)) / 12.0) / (1 - math.Pow(1+(rate/100.0)/12.0, -float64(duration)*12))
+	remainingCapital := float64(capital)
+
+	for i := range duration * 12 {
+		dueDateLabel := widget.NewLabel(strconv.Itoa(i + 1))
+		dueDateLabel.Alignment = fyne.TextAlignCenter
+
+		periodInterest := rate / 100 * float64(remainingCapital) / 12
+		periodInterestLabel := widget.NewLabel(fmt.Sprintf("%0.2f", periodInterest))
+		periodInterestLabel.Alignment = fyne.TextAlignCenter
+
+		periodCapital := mensuality - periodInterest
+		periodCapitalLabel := widget.NewLabel(fmt.Sprintf("%0.2f", periodCapital))
+		periodCapitalLabel.Alignment = fyne.TextAlignCenter
+
+		remainingCapital = remainingCapital - periodCapital
+
+		mainContainer.Add(container.NewGridWithColumns(3, dueDateLabel, periodInterestLabel, periodCapitalLabel))
+
 	}
 
 	return mainContainer
@@ -115,11 +147,11 @@ func createViewContainer(toolType int) *fyne.Container {
 	rateSlide.Step = stepRate
 
 	rateIncreaseDecreaseButtons := container.NewGridWithColumns(2,
-		widget.NewButton(fmt.Sprintf("- %0.2f", stepRate), func() {
+		widget.NewButton(fmt.Sprintf("- %0.2f %%", stepRate), func() {
 			value, _ := rateData.Get()
 			rateData.Set(value - rateSlide.Step)
 		}),
-		widget.NewButton(fmt.Sprintf("+ %0.2f", stepRate), func() {
+		widget.NewButton(fmt.Sprintf("+ %0.2f %%", stepRate), func() {
 			value, _ := rateData.Get()
 			rateData.Set(value + stepRate)
 		}),
@@ -135,7 +167,7 @@ func createViewContainer(toolType int) *fyne.Container {
 	duration := defaultDurationValue
 	durationData := binding.BindInt(&duration)
 
-	durationLabel := widget.NewLabelWithData(binding.IntToStringWithFormat(durationData, lang.L("Duration")+": %d années"))
+	durationLabel := widget.NewLabelWithData(binding.IntToStringWithFormat(durationData, lang.L("Duration")+": %d "+lang.L("Years")))
 	durationLabel.Alignment = fyne.TextAlignCenter
 
 	durationEntry := widget.NewEntryWithData(binding.IntToString(durationData))
@@ -158,7 +190,15 @@ func createViewContainer(toolType int) *fyne.Container {
 	capital := defaultCapitalValue
 	capitalData := binding.BindInt(&capital)
 
-	capitalLabel := widget.NewLabelWithData(binding.IntToStringWithFormat(capitalData, lang.L("Capital")+": %d €"))
+	var capitalLabel *widget.Label
+	switch toolType {
+	case simpleInterestType, compoundInterestType:
+		capitalLabel = widget.NewLabelWithData(binding.IntToStringWithFormat(capitalData, lang.L("Capital")+": %d €"))
+
+	case loanType:
+		capitalLabel = widget.NewLabelWithData(binding.IntToStringWithFormat(capitalData, lang.L("Borrowed capital")+": %d €"))
+	}
+
 	capitalLabel.Alignment = fyne.TextAlignCenter
 
 	capitalEntry := widget.NewEntryWithData(binding.IntToString(capitalData))
@@ -178,28 +218,19 @@ func createViewContainer(toolType int) *fyne.Container {
 	capitalContainer := container.NewGridWithColumns(3, capitalLabel, capitalEntry, capitalIncreaseDecreaseButtons)
 
 	// ========================================================================
-	// Capital
-	resultLabel := widget.NewLabel("X")
-	resultLabel.TextStyle.Bold = true
-	resultLabel.SizeName = theme.SizeNameHeadingText
-	resultLabel.Alignment = fyne.TextAlignCenter
-
-	multiplierLabel := widget.NewLabel("X")
-	multiplierLabel.TextStyle.Bold = true
-	multiplierLabel.Alignment = fyne.TextAlignCenter
-	multiplierLabel.Importance = widget.SuccessImportance
-
-	durationHeaderLabel := widget.NewLabel(lang.L("Duration"))
-	durationHeaderLabel.Alignment = fyne.TextAlignCenter
-
-	valueHeaderLabel := widget.NewLabel(lang.L("Value"))
-	valueHeaderLabel.Alignment = fyne.TextAlignCenter
+	// Result
 
 	var explanation *widget.Label
 	var headerContainer *fyne.Container
 
 	switch toolType {
 	case simpleInterestType:
+		durationHeaderLabel := widget.NewLabel(lang.L("Duration"))
+		durationHeaderLabel.Alignment = fyne.TextAlignCenter
+
+		valueHeaderLabel := widget.NewLabel(lang.L("Value"))
+		valueHeaderLabel.Alignment = fyne.TextAlignCenter
+
 		explanation = widget.NewLabel(lang.L("Simple interest explanation"))
 
 		headerContainer = container.NewVBox(container.NewGridWithColumns(
@@ -209,6 +240,12 @@ func createViewContainer(toolType int) *fyne.Container {
 		))
 
 	case compoundInterestType:
+		durationHeaderLabel := widget.NewLabel(lang.L("Duration"))
+		durationHeaderLabel.Alignment = fyne.TextAlignCenter
+
+		valueHeaderLabel := widget.NewLabel(lang.L("Value"))
+		valueHeaderLabel.Alignment = fyne.TextAlignCenter
+
 		explanation = widget.NewLabel(lang.L("Compound interest explanation"))
 
 		profitHeaderLabel := widget.NewLabel(lang.L("Profit"))
@@ -220,10 +257,31 @@ func createViewContainer(toolType int) *fyne.Container {
 			valueHeaderLabel,
 			profitHeaderLabel,
 		))
+
+	case loanType:
+		explanation = widget.NewLabel(lang.L("Amortizable loan explanation"))
+
+		dueDateHeaderLabel := widget.NewLabel(lang.L("Due date"))
+		dueDateHeaderLabel.Alignment = fyne.TextAlignCenter
+
+		interestHeaderLabel := widget.NewLabel(lang.L("Interests"))
+		interestHeaderLabel.Alignment = fyne.TextAlignCenter
+
+		capitalHeaderLabel := widget.NewLabel(lang.L("Capital"))
+		capitalHeaderLabel.Alignment = fyne.TextAlignCenter
+
+		headerContainer = container.NewVBox(container.NewGridWithColumns(
+			3,
+			dueDateHeaderLabel,
+			interestHeaderLabel,
+			capitalHeaderLabel,
+		))
 	}
 
 	capitalTableContainer := container.NewScroll(container.NewHBox())
 	capitalTableContainer.SetMinSize(fyne.NewSize(capitalTableContainer.MinSize().Width, 100))
+
+	resultContainer := container.NewVBox()
 
 	// This function is called when there is a change in the rate, duration, or capital
 	// => we update displayed results when the user modifies some values
@@ -249,46 +307,75 @@ func createViewContainer(toolType int) *fyne.Container {
 			capitalData.Set(minCapital)
 		}
 
-		var array []interest
-		var value int
-
-		for i := range duration + 1 {
-
-			switch toolType {
-			case simpleInterestType:
-				value = int(math.Round(float64(capital) + float64(capital)*rate/100*float64(i)))
-
-			case compoundInterestType:
-				value = int(math.Round(float64(capital) * math.Pow(1+rate/100, float64(i))))
-			}
-			array = append(array, interest{
-				value:    value,
-				duration: i,
-			})
-		}
-
 		var result int
+
 		// Recreate the table with new data
 		switch toolType {
-		case simpleInterestType:
-			result = int(math.Round(float64(capital) + float64(capital)*rate/100*float64(duration)))
-			capitalTableContainer.Content = createSimpleCapitalTable(array)
+		case simpleInterestType, compoundInterestType:
+			switch toolType {
+			case simpleInterestType:
+				capitalTableContainer.Content = createSimpleCapitalTable(rate, duration, capital)
+				result = int(math.Round(float64(capital) + float64(capital)*rate/100*float64(duration)))
+			case compoundInterestType:
+				capitalTableContainer.Content = createCompoundCapitalTable(rate, duration, capital)
+				result = int(math.Round(float64(capital) * math.Pow(1+rate/100, float64(duration))))
+			}
 
-		case compoundInterestType:
-			result = int(math.Round(float64(capital) * math.Pow(1+rate/100, float64(duration))))
-			capitalTableContainer.Content = createCompoundCapitalTable(array)
+			resultLabel := widget.NewLabel(
+				fmt.Sprintf("%s: %s", lang.L("Final capital"), helper.IntValueSpacer(fmt.Sprintf("%d", result))),
+			)
+			resultLabel.TextStyle.Bold = true
+			resultLabel.SizeName = theme.SizeNameHeadingText
+			resultLabel.Alignment = fyne.TextAlignCenter
+
+			multiplierLabel := widget.NewLabel(
+				fmt.Sprintf("%s: %0.2f %%", lang.L("Multiplier"), (float64(result)/float64(capital)-1)*100),
+			)
+			multiplierLabel.TextStyle.Bold = true
+			multiplierLabel.Alignment = fyne.TextAlignCenter
+			multiplierLabel.Importance = widget.SuccessImportance
+
+			resultContainer.RemoveAll()
+			resultContainer.Add(container.NewVBox(resultLabel, multiplierLabel))
+
+		case loanType:
+
+			capitalTableContainer.Content = createLoanTable(rate, duration, capital)
+
+			// m = [(C*r)/12] / [1-(1+(r/12))^-n]
+			mensuality := ((float64(capital) * (rate / 100.0)) / 12.0) / (1 - math.Pow(1+(rate/100.0)/12.0, -float64(duration)*12))
+			mensualityLabel := widget.NewLabel(fmt.Sprintf("%s: %0.2f", lang.L("Mensuality"), mensuality))
+			mensualityLabel.TextStyle.Bold = true
+			mensualityLabel.Alignment = fyne.TextAlignCenter
+
+			totalRefunded := helper.ValueSpacer(fmt.Sprintf("%0.2f", mensuality*12.0*float64(duration)))
+			totalRefundedLabel := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total refunded"), totalRefunded))
+			totalRefundedLabel.TextStyle.Bold = true
+			totalRefundedLabel.SizeName = theme.SizeNameHeadingText
+			totalRefundedLabel.Alignment = fyne.TextAlignCenter
+
+			paidInterest := mensuality*12.0*float64(duration) - float64(capital)
+			paidInterestFormatted := helper.ValueSpacer(fmt.Sprintf("%0.2f", paidInterest))
+
+			paidInterestLabel := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Interest paid"), paidInterestFormatted))
+			paidInterestLabel.TextStyle.Bold = true
+			paidInterestLabel.SizeName = theme.SizeNameHeadingText
+			paidInterestLabel.Alignment = fyne.TextAlignCenter
+
+			loanCostLabel := widget.NewLabel(fmt.Sprintf("%s: %0.2f %%", lang.L("Loan cost"), 100*paidInterest/float64(capital)))
+			loanCostLabel.TextStyle.Bold = true
+			loanCostLabel.Alignment = fyne.TextAlignCenter
+
+			resultContainer.RemoveAll()
+			resultContainer.Add(container.NewVBox(totalRefundedLabel, paidInterestLabel, loanCostLabel, mensualityLabel))
+
 		}
-
-		multiplier := float64(result) / float64(capital)
 
 		capitalTableContainer.Refresh()
 
-		resultLabel.SetText(fmt.Sprintf("%s : %s", lang.L("Final capital"), helper.IntValueSpacer(fmt.Sprintf("%d", result))))
-		resultLabel.Refresh()
-		multiplierLabel.SetText(fmt.Sprintf("%s: x%0.3f", lang.L("Multiplier"), multiplier))
-		multiplierLabel.Refresh()
 	})
 
+	// Add the listener function to the binded data
 	rateData.AddListener(dataListener)
 	durationData.AddListener(dataListener)
 	capitalData.AddListener(dataListener)
@@ -299,8 +386,7 @@ func createViewContainer(toolType int) *fyne.Container {
 		capitalContainer,
 		widget.NewSeparator(),
 		layout.NewSpacer(),
-		resultLabel,
-		multiplierLabel,
+		resultContainer,
 		layout.NewSpacer(),
 		widget.NewSeparator(),
 		headerContainer,
