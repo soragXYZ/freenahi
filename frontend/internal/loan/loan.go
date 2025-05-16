@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"freenahiFront/internal/helper"
@@ -23,6 +24,8 @@ const (
 	revolving      = "revolvingcredit"
 	mortgage       = "mortgage"
 	consumercredit = "consumercredit"
+
+	unselectTime = 200 * time.Millisecond
 )
 
 type Loan struct {
@@ -117,15 +120,71 @@ func createLoanTable(app fyne.App) *fyne.Container {
 	)
 	loanTable.OnSelected = func(id widget.ListItemID) {
 
+		go func() {
+			time.Sleep(unselectTime)
+			fyne.Do(func() {
+				loanTable.Unselect(id)
+			})
+		}()
+
 		w := app.NewWindow(fmt.Sprintf("%s : %d", lang.L("Loan"), id))
 		w.CenterOnScreen()
 
-		// // credit numero | date souscription | type | montant | durée | taux | mensualité | mensualité restantes | montant assurance
+		// credit numero | date souscription | type | montant | durée | taux | mensualité | mensualité restantes | montant assurance
+		// ajouter cout total crédit, capital restant a rembourser, capital remboursé %
+		// https://youtu.be/P3v06IYFu_A?si=hur964b0YJWiKlRJ&t=522
+
+		var totalNbPayments int
+		if loans[id].Nb_payments_total == 0 { // Manually calculate how much payments are left to pay
+
+			// Manually calculate duration the ugly way
+			t1, err := time.Parse("2006-01-02 15:04:05", loans[id].Maturity_date)
+			if err != nil {
+				helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", loans[id].Maturity_date)
+			}
+
+			t2, err := time.Parse("2006-01-02 15:04:05", loans[id].Subscription_date)
+			if err != nil {
+				helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", loans[id].Subscription_date)
+			}
+
+			yearT1, _ := strconv.Atoi(t1.Format("2006"))
+			monthT1, _ := strconv.Atoi(t1.Format("01"))
+			yearT2, _ := strconv.Atoi(t2.Format("2006"))
+			monthT2, _ := strconv.Atoi(t2.Format("01"))
+
+			totalNbPayments = (yearT1-yearT2)*12 + monthT1 - monthT2
+
+		} else {
+			totalNbPayments = int(loans[id].Nb_payments_total)
+		}
+
+		// Calculate the credit and capital reimbursed for the current (n+1) period
+		remainingCapital := loans[id].Total_amount
+		var periodInterest float32
+		var periodCapital float32
+
+		for j := range totalNbPayments {
+
+			// Loop until we reach the current period
+			if totalNbPayments-j == int(loans[id].Nb_payments_left) {
+				break
+			}
+
+			periodInterest = loans[id].Rate / 100 * float32(remainingCapital) / 12
+			periodCapital = loans[id].Next_payment_amount - periodInterest
+
+			remainingCapital = remainingCapital - periodCapital
+		}
 
 		content := container.NewVBox(
-			widget.NewLabel(fmt.Sprintf("%f", loans[id].Total_amount)),
-			widget.NewLabel(lang.L(loans[id].Loan_type)),
-			widget.NewLabel(fmt.Sprintf("%f", loans[id].Next_payment_amount)),
+			widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Amount"), helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[id].Total_amount)))),
+			widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Type"), lang.L(loans[id].Loan_type))),
+			widget.NewLabel(fmt.Sprintf("%s: %0.2f %%", lang.L("Rate"), loans[id].Rate)),
+			widget.NewLabel(fmt.Sprintf("%s: %0.2f", lang.L("Mensuality"), loans[id].Next_payment_amount)),
+			widget.NewLabel(fmt.Sprintf("%s: %0.2f", lang.L("Insurance"), loans[id].Insurance_amount)),
+			widget.NewLabel(fmt.Sprintf("%s: %0.2f", lang.L("Interests"), periodInterest)),
+			widget.NewLabel(fmt.Sprintf("%s: %0.2f", lang.L("Capital"), periodCapital)),
 		)
 
 		switch loans[id].Loan_type {
