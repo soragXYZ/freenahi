@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"freenahiFront/internal/helper"
 	"freenahiFront/internal/settings"
@@ -13,6 +14,15 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/lang"
 	"fyne.io/fyne/v2/widget"
+)
+
+const (
+	// Possible value for loan type
+	// https://docs.powens.com/api-reference/products/data-aggregation/bank-accounts#loan-object
+	simple         = "loan"
+	revolving      = "revolvingcredit"
+	mortgage       = "mortgage"
+	consumercredit = "consumercredit"
 )
 
 type Loan struct {
@@ -50,9 +60,6 @@ func NewLoanScreen(app fyne.App, win fyne.Window) *fyne.Container {
 // Create the table of of loan
 func createLoanTable(app fyne.App) *fyne.Container {
 
-	loans := getLoans(app)
-	fmt.Println(loans)
-
 	subscriptionDateLabel := widget.NewLabel(lang.L("Subscription date"))
 	subscriptionDateLabel.Alignment = fyne.TextAlignCenter
 
@@ -69,13 +76,81 @@ func createLoanTable(app fyne.App) *fyne.Container {
 		durationHeaderLabel,
 	)
 
-	// Faire liste simple
-	// Fenetre qui s ouvre avec details
-	// credit numero | date souscription | type | montant | durée | taux | mensualité | mensualité restantes | montant assurance
+	loans := getLoans(app)
 
-	mainContainer := container.NewVBox(headerContainer)
+	loanTable := widget.NewList(
+		func() int {
+			return len(loans)
+		},
+		func() fyne.CanvasObject {
+			return container.NewGridWithColumns(3, widget.NewLabel("Template"), widget.NewLabel("Template"), widget.NewLabel("Template"))
+		},
+		func(i widget.ListItemID, o fyne.CanvasObject) {
 
-	return mainContainer
+			// Clean the cell from the previous value
+			item := o.(*fyne.Container)
+			item.RemoveAll()
+
+			var subscriptionDateItem *widget.Label
+			if loans[i].Subscription_date != "" {
+				parsedSubscriptionDate, err := time.Parse("2006-01-02 15:04:05", loans[i].Subscription_date)
+				if err != nil {
+					helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", loans[i].Subscription_date)
+				}
+				subscriptionDateItem = widget.NewLabel(parsedSubscriptionDate.Format("2006-01-02"))
+			} else {
+				subscriptionDateItem = widget.NewLabel(lang.L("Irrelevant"))
+			}
+
+			subscriptionDateItem.Alignment = fyne.TextAlignCenter
+
+			amountItem := widget.NewLabel(helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[i].Total_amount)))
+			amountItem.Alignment = fyne.TextAlignCenter
+
+			durationItem := widget.NewLabel(fmt.Sprintf("%d", loans[i].Duration))
+			durationItem.Alignment = fyne.TextAlignCenter
+
+			item.Add(subscriptionDateItem)
+			item.Add(amountItem)
+			item.Add(durationItem)
+		},
+	)
+	loanTable.OnSelected = func(id widget.ListItemID) {
+
+		w := app.NewWindow(fmt.Sprintf("%s : %d", lang.L("Loan"), id))
+		w.CenterOnScreen()
+
+		// // credit numero | date souscription | type | montant | durée | taux | mensualité | mensualité restantes | montant assurance
+
+		content := container.NewVBox(
+			widget.NewLabel(fmt.Sprintf("%f", loans[id].Total_amount)),
+			widget.NewLabel(lang.L(loans[id].Loan_type)),
+			widget.NewLabel(fmt.Sprintf("%f", loans[id].Next_payment_amount)),
+		)
+
+		switch loans[id].Loan_type {
+		case simple:
+			content.Add(widget.NewLabel("simple"))
+
+		case revolving:
+			content.Add(widget.NewLabel("revolving"))
+
+		case mortgage:
+			content.Add(widget.NewLabel("mortgage"))
+
+		case consumercredit:
+			content.Add(widget.NewLabel("consumer"))
+
+		default:
+			helper.Logger.Fatal().Msg("Loan type: unsupported type")
+		}
+
+		w.SetContent(content)
+		w.Resize(fyne.NewSize(800, 800))
+		w.Show()
+	}
+
+	return container.NewBorder(headerContainer, nil, nil, nil, loanTable)
 }
 
 // ToDo: modify the function to return an error and display it if sth went wrong in the backend
