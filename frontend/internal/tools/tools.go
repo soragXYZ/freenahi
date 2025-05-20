@@ -3,6 +3,7 @@ package tools
 import (
 	"fmt"
 	"freenahiFront/internal/helper"
+	"log"
 	"math"
 	"strconv"
 
@@ -86,7 +87,7 @@ func createCompoundCapitalTable(rate float64, duration int, capital int) *fyne.C
 }
 
 // Create the table of costs for an amortizable loan
-func createLoanTable(rate float64, duration int, capital int) *fyne.Container {
+func createLoanTable(rate float64, duration int, capital int, insuranceType string) *fyne.Container {
 
 	mainContainer := container.NewVBox()
 
@@ -106,9 +107,22 @@ func createLoanTable(rate float64, duration int, capital int) *fyne.Container {
 		periodCapitalLabel := widget.NewLabel(fmt.Sprintf("%0.2f", periodCapital))
 		periodCapitalLabel.Alignment = fyne.TextAlignCenter
 
+		var interestCapitalLabel *widget.Label
+		switch insuranceType {
+		case lang.L("Outstanding capital"):
+			interestCapitalLabel = widget.NewLabel("WIP")
+		case lang.L("Initial capital"):
+			interestCapitalLabel = widget.NewLabel("WIIIIP")
+		}
+
 		remainingCapital = remainingCapital - periodCapital
 
-		mainContainer.Add(container.NewGridWithColumns(3, dueDateLabel, periodInterestLabel, periodCapitalLabel))
+		mainContainer.Add(container.NewGridWithColumns(4,
+			dueDateLabel,
+			periodInterestLabel,
+			periodCapitalLabel,
+			interestCapitalLabel,
+		))
 
 	}
 
@@ -131,6 +145,11 @@ func createViewContainer(toolType int) *fyne.Container {
 		defaultCapitalValue = 10000
 		minCapital          = 0
 		stepCapital         = 1000
+
+		defaultInsuranceRateValue = 2.0
+		minInsuranceRate          = -10
+		maxInsuranceRate          = 20
+		stepInsuranceRate         = 0.1
 	)
 
 	// ========================================================================
@@ -138,7 +157,7 @@ func createViewContainer(toolType int) *fyne.Container {
 	rate := defaultRateValue
 	rateData := binding.BindFloat(&rate)
 
-	rateLabel := widget.NewLabelWithData(binding.FloatToStringWithFormat(rateData, lang.L("Interest rate")+": %0.2f"))
+	rateLabel := widget.NewLabelWithData(binding.FloatToStringWithFormat(rateData, lang.L("Capital interest rate")+": %0.2f %%"))
 	rateLabel.Alignment = fyne.TextAlignCenter
 
 	rateEntry := widget.NewEntryWithData(binding.FloatToString(rateData))
@@ -216,6 +235,67 @@ func createViewContainer(toolType int) *fyne.Container {
 	)
 
 	capitalContainer := container.NewGridWithColumns(3, capitalLabel, capitalEntry, capitalIncreaseDecreaseButtons)
+	dataContainer := container.NewVBox(
+		rateContainer,
+		durationContainer,
+		capitalContainer,
+	)
+
+	insuranceRate := defaultInsuranceRateValue
+	insuranceRateData := binding.BindFloat(&insuranceRate)
+
+	insuranceType := lang.L("Outstanding capital")
+	insuranceTypeData := binding.BindString(&insuranceType)
+
+	if toolType == loanType {
+
+		insuranceRateLabel := widget.NewLabelWithData(binding.FloatToStringWithFormat(insuranceRateData, lang.L("Insurance interest rate")+": %0.2f"))
+		insuranceRateLabel.Alignment = fyne.TextAlignCenter
+
+		insuranceRateEntry := widget.NewEntryWithData(binding.FloatToString(insuranceRateData))
+
+		insuranceRateSlide := widget.NewSliderWithData(minInsuranceRate, maxInsuranceRate, insuranceRateData)
+		insuranceRateSlide.Step = stepInsuranceRate
+
+		insuranceRateIncreaseDecreaseButtons := container.NewGridWithColumns(2,
+			widget.NewButton(fmt.Sprintf("- %0.2f %%", stepInsuranceRate), func() {
+				value, _ := insuranceRateData.Get()
+				insuranceRateData.Set(value - insuranceRateSlide.Step)
+			}),
+			widget.NewButton(fmt.Sprintf("+ %0.2f %%", stepInsuranceRate), func() {
+				value, _ := insuranceRateData.Get()
+				insuranceRateData.Set(value + stepInsuranceRate)
+			}),
+		)
+
+		radio := widget.NewRadioGroup([]string{lang.L("Outstanding capital"), lang.L("Initial capital")}, func(value string) {
+			log.Println("Radio set to", value)
+		})
+		radio.Horizontal = true
+		radio.Selected = lang.L("Outstanding capital")
+		radio.OnChanged = func(value string) {
+			switch value {
+			case "":
+				radio.Selected = lang.L("Outstanding capital")
+				insuranceTypeData.Set(lang.L("Outstanding capital"))
+			case lang.L("Outstanding capital"):
+				insuranceTypeData.Set(lang.L("Outstanding capital"))
+			case lang.L("Initial capital"):
+				insuranceTypeData.Set(lang.L("Initial capital"))
+			}
+		}
+
+		insuranceTypeLabel := widget.NewLabel(fmt.Sprintf("%s:", lang.L("Insurance type")))
+		insuranceTypeLabel.Alignment = fyne.TextAlignCenter
+
+		insuranceContainer := container.NewVBox(
+			container.NewGridWithColumns(2, insuranceTypeLabel, radio),
+			container.NewGridWithColumns(3, insuranceRateLabel, insuranceRateEntry, insuranceRateIncreaseDecreaseButtons),
+			insuranceRateSlide,
+		)
+
+		dataContainer.Add(insuranceContainer)
+	}
 
 	// ========================================================================
 	// Result
@@ -227,9 +307,11 @@ func createViewContainer(toolType int) *fyne.Container {
 	case simpleInterestType:
 		durationHeaderLabel := widget.NewLabel(lang.L("Duration"))
 		durationHeaderLabel.Alignment = fyne.TextAlignCenter
+		durationHeaderLabel.TextStyle.Italic = true
 
 		valueHeaderLabel := widget.NewLabel(lang.L("Value"))
 		valueHeaderLabel.Alignment = fyne.TextAlignCenter
+		valueHeaderLabel.TextStyle.Italic = true
 
 		explanation = widget.NewLabel(lang.L("Simple interest explanation"))
 
@@ -242,14 +324,17 @@ func createViewContainer(toolType int) *fyne.Container {
 	case compoundInterestType:
 		durationHeaderLabel := widget.NewLabel(lang.L("Duration"))
 		durationHeaderLabel.Alignment = fyne.TextAlignCenter
+		durationHeaderLabel.TextStyle.Italic = true
 
 		valueHeaderLabel := widget.NewLabel(lang.L("Value"))
 		valueHeaderLabel.Alignment = fyne.TextAlignCenter
+		valueHeaderLabel.TextStyle.Italic = true
 
 		explanation = widget.NewLabel(lang.L("Compound interest explanation"))
 
 		profitHeaderLabel := widget.NewLabel(lang.L("Profit"))
 		profitHeaderLabel.Alignment = fyne.TextAlignCenter
+		profitHeaderLabel.TextStyle.Italic = true
 
 		headerContainer = container.NewVBox(container.NewGridWithColumns(
 			3,
@@ -263,18 +348,26 @@ func createViewContainer(toolType int) *fyne.Container {
 
 		dueDateHeaderLabel := widget.NewLabel(lang.L("Due date"))
 		dueDateHeaderLabel.Alignment = fyne.TextAlignCenter
+		dueDateHeaderLabel.TextStyle.Italic = true
 
 		interestHeaderLabel := widget.NewLabel(lang.L("Interests"))
 		interestHeaderLabel.Alignment = fyne.TextAlignCenter
+		interestHeaderLabel.TextStyle.Italic = true
 
 		capitalHeaderLabel := widget.NewLabel(lang.L("Capital"))
 		capitalHeaderLabel.Alignment = fyne.TextAlignCenter
+		capitalHeaderLabel.TextStyle.Italic = true
+
+		insuranceHeaderLabel := widget.NewLabel(lang.L("Insurance"))
+		insuranceHeaderLabel.Alignment = fyne.TextAlignCenter
+		insuranceHeaderLabel.TextStyle.Italic = true
 
 		headerContainer = container.NewVBox(container.NewGridWithColumns(
-			3,
+			4,
 			dueDateHeaderLabel,
 			interestHeaderLabel,
 			capitalHeaderLabel,
+			insuranceHeaderLabel,
 		))
 	}
 
@@ -340,7 +433,7 @@ func createViewContainer(toolType int) *fyne.Container {
 
 		case loanType:
 
-			capitalTableContainer.Content = createLoanTable(rate, duration, capital)
+			capitalTableContainer.Content = createLoanTable(rate, duration, capital, insuranceType)
 
 			// m = [(C*r)/12] / [1-(1+(r/12))^-n]
 			mensuality := ((float64(capital) * (rate / 100.0)) / 12.0) / (1 - math.Pow(1+(rate/100.0)/12.0, -float64(duration)*12))
@@ -379,11 +472,11 @@ func createViewContainer(toolType int) *fyne.Container {
 	rateData.AddListener(dataListener)
 	durationData.AddListener(dataListener)
 	capitalData.AddListener(dataListener)
+	insuranceRateData.AddListener(dataListener)
+	insuranceTypeData.AddListener(dataListener)
 
 	return container.NewVBox(
-		rateContainer,
-		durationContainer,
-		capitalContainer,
+		dataContainer,
 		widget.NewSeparator(),
 		layout.NewSpacer(),
 		resultContainer,

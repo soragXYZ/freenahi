@@ -16,7 +16,6 @@
 
 * Frontend
 - Add a tutorial to create the backend and Powens account
-- Add manage link in accounts
-- Screen transactions: add filter options
+- Tx, accounts and loans: add filter and reload options
 - Remove kx-widget dependency ?
 - Add tooltips ? https://github.com/dweymouth/fyne-tooltip
