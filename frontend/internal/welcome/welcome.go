@@ -21,7 +21,7 @@ func NewWelcomeScreen() fyne.CanvasObject {
 
 	authors := widget.NewRichTextFromMarkdown("\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n\nHEEEEELO\n")
 	content := container.NewVBox(
-		widget.NewLabelWithStyle("\n\nWelcome to the Fyne toolkit demo app", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Welcome", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		logo,
 		container.NewCenter(authors),
 	)
