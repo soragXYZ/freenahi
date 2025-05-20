@@ -60,38 +60,51 @@ func NewAccountScreen(app fyne.App) fyne.CanvasObject {
 		}
 	})
 
-	screen := container.NewBorder(manageButton, nil, nil, nil, accountTable)
+	screen := container.NewBorder(
+		container.NewVBox(manageButton, widget.NewSeparator()),
+		nil,
+		nil,
+		nil,
+		accountTable,
+	)
+
 	return screen
 }
 
 // Create the table of transaction
 func createAccountTable(app fyne.App) *widget.Table {
 
-	var (
-		accountNameLabel         = widget.NewLabel(lang.L("Account name"))
-		testAccountNameLabelSize = widget.NewLabel("COMPTE COURANT NUMERO XXX").MinSize().Width
+	accountNameLabel := widget.NewLabel(lang.L("Account name"))
+	accountNameLabel.TextStyle.Bold = true
+	testAccountNameLabelSize := widget.NewLabel("COMPTE COURANT NUMERO XXX").MinSize().Width
 
-		valueLabel         = widget.NewLabel(lang.L("Value"))
-		testValueLabelSize = widget.NewLabel("-123456123.00").MinSize().Width
+	valueLabel := widget.NewLabel(lang.L("Value"))
+	valueLabel.TextStyle.Bold = true
+	testValueLabelSize := widget.NewLabel("-123456123.00").MinSize().Width
 
-		currencyLabel         = widget.NewLabel(lang.L("Currency"))
-		testCurrencyLabelSize = widget.NewLabel("EUR").MinSize().Width
+	currencyLabel := widget.NewLabel(lang.L("Currency"))
+	currencyLabel.TextStyle.Bold = true
+	testCurrencyLabelSize := widget.NewLabel("EUR").MinSize().Width
 
-		lastUpdateLabel         = widget.NewLabel(lang.L("Last update"))
-		testLastUpdateLabelSize = widget.NewLabel("XXXX-YY-ZZ").MinSize().Width
+	lastUpdateLabel := widget.NewLabel(lang.L("Last update"))
+	lastUpdateLabel.TextStyle.Bold = true
+	testLastUpdateLabelSize := widget.NewLabel("XXXX-YY-ZZ").MinSize().Width
 
-		typeLabel         = widget.NewLabel(lang.L("Type"))
-		testTypeLabelSize = widget.NewLabel(lang.L("capitalisation")).MinSize().Width
+	typeLabel := widget.NewLabel(lang.L("Type"))
+	typeLabel.TextStyle.Bold = true
+	testTypeLabelSize := widget.NewLabel(lang.L("capitalisation")).MinSize().Width
 
-		usageLabel         = widget.NewLabel(lang.L("Usage"))
-		testUsageLabelSize = widget.NewLabel(lang.L("PRIV")).MinSize().Width
+	usageLabel := widget.NewLabel(lang.L("Usage"))
+	usageLabel.TextStyle.Bold = true
+	testUsageLabelSize := widget.NewLabel(lang.L("PRIV")).MinSize().Width
 
-		IBANLabel         = widget.NewLabel(lang.L("IBAN"))
-		testIBANLabelSize = widget.NewLabel("FR76 3000 1007 9412 3456 7890 185").MinSize().Width
+	IBANLabel := widget.NewLabel(lang.L("IBAN"))
+	IBANLabel.TextStyle.Bold = true
+	testIBANLabelSize := widget.NewLabel("FR76 3000 1007 9412 3456 7890 185").MinSize().Width
 
-		numberLabel         = widget.NewLabel(lang.L("Account number"))
-		testNumberLabelSize = widget.NewLabel("550e8400-e29b-41d4-a716-446655440000").MinSize().Width
-	)
+	numberLabel := widget.NewLabel(lang.L("Account number"))
+	numberLabel.TextStyle.Bold = true
+	testNumberLabelSize := widget.NewLabel("550e8400-e29b-41d4-a716-446655440000").MinSize().Width
 
 	// Fill bank accounts. The first row is a special item only used for the table header (no real data)
 	bankAccounts := []BankAccount{{

@@ -58,25 +58,29 @@ func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 // Create the transaction table
 func createTransactionTable(app fyne.App, win fyne.Window) *widget.Table {
 
-	var (
-		pinnedLabel = widget.NewLabel(lang.L("Pinned"))
+	pinnedLabel := widget.NewLabel(lang.L("Pinned"))
+	pinnedLabel.TextStyle.Bold = true
 
-		dateLabel         = widget.NewLabel(lang.L("Date"))
-		testDateLabelSize = widget.NewLabel("XXXX-YY-ZZ").MinSize().Width
+	dateLabel := widget.NewLabel(lang.L("Date"))
+	dateLabel.TextStyle.Bold = true
+	testDateLabelSize := widget.NewLabel("XXXX-YY-ZZ").MinSize().Width
 
-		valueLabel         = widget.NewLabel(lang.L("Value"))
-		testValueLabelSize = widget.NewLabel("-123456123.00").MinSize().Width
+	valueLabel := widget.NewLabel(lang.L("Value"))
+	valueLabel.TextStyle.Bold = true
+	testValueLabelSize := widget.NewLabel("-123456123.00").MinSize().Width
 
-		typeLabel         = widget.NewLabel(lang.L("Type"))
-		testTypeLabelSize = widget.NewLabel(lang.L("loan_repayment")).MinSize().Width
+	typeLabel := widget.NewLabel(lang.L("Type"))
+	typeLabel.TextStyle.Bold = true
+	testTypeLabelSize := widget.NewLabel(lang.L("loan_repayment")).MinSize().Width
 
-		detailsLabel         = widget.NewLabel(lang.L("Details"))
-		testDetailsLabelSize = widget.NewLabel("CB DEBIT IMMEDIAT UBER EATS").MinSize().Width
+	detailsLabel := widget.NewLabel(lang.L("Details"))
+	detailsLabel.TextStyle.Bold = true
+	testDetailsLabelSize := widget.NewLabel("CB DEBIT IMMEDIAT UBER EATS").MinSize().Width
 
-		deleteLabel = widget.NewLabel(lang.L("Delete"))
+	deleteLabel := widget.NewLabel(lang.L("Delete"))
+	deleteLabel.TextStyle.Bold = true
 
-		testIconSize = widget.NewIcon(theme.RadioButtonCheckedIcon()).MinSize().Width
-	)
+	testIconSize := widget.NewIcon(theme.RadioButtonCheckedIcon()).MinSize().Width
 
 	// Fill txs with the first page of txs. The first tx is a special item only used for the table header (no real data)
 	txs := []Transaction{{
