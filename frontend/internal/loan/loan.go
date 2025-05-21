@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 
 	"freenahiFront/internal/helper"
@@ -131,32 +130,6 @@ func createLoanTable(app fyne.App) *fyne.Container {
 		w := app.NewWindow(fmt.Sprintf("%s : %d", lang.L("Loan"), id))
 		w.CenterOnScreen()
 
-		// ToDo: to be moved in backend
-		var totalNbPayments int
-		if loans[id].Nb_payments_total == 0 { // Manually calculate how much payments are left to pay
-
-			// Manually calculate duration the ugly way
-			t1, err := time.Parse("2006-01-02 15:04:05", loans[id].Maturity_date)
-			if err != nil {
-				helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", loans[id].Maturity_date)
-			}
-
-			t2, err := time.Parse("2006-01-02 15:04:05", loans[id].Subscription_date)
-			if err != nil {
-				helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", loans[id].Subscription_date)
-			}
-
-			yearT1, _ := strconv.Atoi(t1.Format("2006"))
-			monthT1, _ := strconv.Atoi(t1.Format("01"))
-			yearT2, _ := strconv.Atoi(t2.Format("2006"))
-			monthT2, _ := strconv.Atoi(t2.Format("01"))
-
-			totalNbPayments = (yearT1-yearT2)*12 + monthT1 - monthT2
-
-		} else {
-			totalNbPayments = int(loans[id].Nb_payments_total)
-		}
-
 		// Calculate the interest and capital reimbursed for the current (n+1) mensuality
 		remainingCapital := loans[id].Total_amount
 
@@ -164,15 +137,10 @@ func createLoanTable(app fyne.App) *fyne.Container {
 		var sumPeriodInterest float64 // The sum of interests paid for this loan at the moment
 		var periodCapital float64
 
-		for j := range totalNbPayments {
-
-			// Loop until we reach the current mensuality, ie today
-			if totalNbPayments-j == int(loans[id].Nb_payments_left) {
-				break
-			}
+		for range loans[id].Nb_payments_done {
 
 			periodInterest = loans[id].Rate / 100 * float64(remainingCapital) / 12
-			periodCapital = loans[id].Next_payment_amount - periodInterest
+			periodCapital = loans[id].Next_payment_amount - loans[id].Insurance_amount - periodInterest
 
 			sumPeriodInterest += periodInterest
 			remainingCapital = remainingCapital - periodCapital
@@ -188,7 +156,7 @@ func createLoanTable(app fyne.App) *fyne.Container {
 		amountItem.Alignment = fyne.TextAlignCenter
 		amountItem.SizeName = theme.SizeNameSubHeadingText
 
-		durationItem := widget.NewLabel(fmt.Sprintf("%s: %d", lang.L("Duration"), totalNbPayments))
+		durationItem := widget.NewLabel(fmt.Sprintf("%s: %d", lang.L("Duration"), loans[id].Nb_payments_total))
 		durationItem.Alignment = fyne.TextAlignCenter
 		durationItem.SizeName = theme.SizeNameSubHeadingText
 
@@ -292,7 +260,7 @@ func createLoanTable(app fyne.App) *fyne.Container {
 
 		// =======================================================================================
 		// Bottom left box
-		totalToRefund := loans[id].Next_payment_amount * float64(totalNbPayments)
+		totalToRefund := (loans[id].Next_payment_amount - loans[id].Insurance_amount) * float64(loans[id].Nb_payments_total)
 		paidInterest := totalToRefund - loans[id].Total_amount
 
 		totalPaymentGraph := helper.DrawDoughnut(
@@ -377,7 +345,7 @@ func createLoanTable(app fyne.App) *fyne.Container {
 			"Current period payment",
 		)
 
-		totalRefundedItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total refunded"), helper.ValueSpacer(fmt.Sprintf("%0.2f", float64(totalNbPayments-int(loans[id].Nb_payments_left))*loans[id].Next_payment_amount))))
+		totalRefundedItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total refunded"), helper.ValueSpacer(fmt.Sprintf("%0.2f", float64(loans[id].Nb_payments_done)*(loans[id].Next_payment_amount-loans[id].Insurance_amount)))))
 		totalRefundedItem.Alignment = fyne.TextAlignCenter
 		totalRefundedItem.SizeName = theme.SizeNameSubHeadingText
 

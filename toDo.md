@@ -8,8 +8,6 @@
 - Subrouting for endpoints ?
     https://codewithflash.com/advanced-routing-with-go-122
     https://dev.to/kengowada/go-routing-101-handling-and-grouping-routes-with-nethttp-4k0e
-- Manually calculate loan duration if missing
-- Loan should be positive only
 
 * Documentation
 - Complete it

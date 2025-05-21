@@ -3,6 +3,8 @@ package webhook
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"time"
 
 	"financialApp/config"
 )
@@ -56,9 +58,55 @@ func ConnectionSynced(w http.ResponseWriter, r *http.Request) {
 				Str("loan_type", account.Loan.Loan_type).
 				Msg("Loan update")
 
+			// Sometimes Powens does not calculate some values so we do it manually
+			if account.Loan.Nb_payments_total == 0 { // Manually calculate how much payments are left to pay
+
+				// Manually calculate duration the ugly way
+				t1, err := time.Parse("2006-01-02 15:04:05", account.Loan.Maturity_date)
+				if err != nil {
+					config.Logger.Error().Err(err).Msgf("Cannot parse date %s", account.Loan.Maturity_date)
+				}
+
+				t2, err := time.Parse("2006-01-02 15:04:05", account.Loan.Subscription_date)
+				if err != nil {
+					config.Logger.Error().Err(err).Msgf("Cannot parse date %s", account.Loan.Subscription_date)
+				}
+
+				yearT1, _ := strconv.Atoi(t1.Format("2006"))
+				monthT1, _ := strconv.Atoi(t1.Format("01"))
+				yearT2, _ := strconv.Atoi(t2.Format("2006"))
+				monthT2, _ := strconv.Atoi(t2.Format("01"))
+
+				account.Loan.Nb_payments_total = uint((yearT1-yearT2)*12 + monthT1 - monthT2)
+				config.Logger.Trace().
+					Str("Subscription_date", account.Loan.Subscription_date).
+					Str("Maturity_date", account.Loan.Maturity_date).
+					Msgf("Manually calculated Nb_payments_total: %d", account.Loan.Nb_payments_total)
+
+			}
+
+			if account.Loan.Nb_payments_done == 0 {
+				account.Loan.Nb_payments_done = account.Loan.Nb_payments_total - account.Loan.Nb_payments_left
+				config.Logger.Trace().
+					Uint("Nb_payments_total", account.Loan.Nb_payments_total).
+					Uint("Nb_payments_left", account.Loan.Nb_payments_left).
+					Msgf("Manually calculated Nb_payments_done: %d", account.Loan.Nb_payments_done)
+			}
+
+			if account.Loan.Total_amount < 0 {
+				account.Loan.Total_amount = -account.Loan.Total_amount
+				config.Logger.Trace().Msg("Total_amount was negative. Reverted")
+			}
+
+			if account.Loan.Duration == 0 {
+				account.Loan.Duration = account.Loan.Nb_payments_total
+				config.Logger.Trace().Msg("Duration was not set. Set with Nb_payments_total value")
+			}
+
 			// Update the loan table
-			query = "INSERT INTO loan (loan_account_id, total_amount, available_amount, used_amount, subscription_date, maturity_date, start_repayment_date, is_deferred, next_payment_amount, next_payment_date, rate, nb_payments_left, nb_payments_done, nb_payments_total, last_payment_amount, last_payment_date, account_label, insurance_label, insurance_amount, insurance_rate, duration, loan_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE nb_payments_left=?"
-			_, err = config.DB.Exec(query, account.Account_id, account.Loan.Total_amount, account.Loan.Available_amount, account.Loan.Used_amount, account.Loan.Subscription_date, account.Loan.Maturity_date, account.Loan.Start_repayment_date, account.Loan.Deferred, account.Loan.Next_payment_amount, account.Loan.Next_payment_date, account.Loan.Rate, account.Loan.Nb_payments_left, account.Loan.Nb_payments_done, account.Loan.Nb_payments_total, account.Loan.Last_payment_amount, account.Loan.Last_payment_date, account.Loan.Account_label, account.Loan.Insurance_label, account.Loan.Insurance_amount, account.Loan.Insurance_rate, account.Loan.Duration, account.Loan.Loan_type, account.Loan.Nb_payments_left)
+			query = "INSERT INTO loan (loan_account_id, total_amount, available_amount, used_amount, subscription_date, maturity_date, start_repayment_date, is_deferred, next_payment_amount, next_payment_date, rate, nb_payments_left, nb_payments_done, nb_payments_total, last_payment_amount, last_payment_date, account_label, insurance_label, insurance_amount, insurance_rate, duration, loan_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE total_amount=?, available_amount=?, used_amount=?, nb_payments_left=?, nb_payments_done=?, nb_payments_total=?, duration=?"
+			_, err = config.DB.Exec(query, account.Account_id, account.Loan.Total_amount, account.Loan.Available_amount, account.Loan.Used_amount, account.Loan.Subscription_date, account.Loan.Maturity_date, account.Loan.Start_repayment_date, account.Loan.Deferred, account.Loan.Next_payment_amount, account.Loan.Next_payment_date, account.Loan.Rate, account.Loan.Nb_payments_left, account.Loan.Nb_payments_done, account.Loan.Nb_payments_total, account.Loan.Last_payment_amount, account.Loan.Last_payment_date, account.Loan.Account_label, account.Loan.Insurance_label, account.Loan.Insurance_amount, account.Loan.Insurance_rate, account.Loan.Duration, account.Loan.Loan_type,
+				account.Loan.Total_amount, account.Loan.Available_amount, account.Loan.Used_amount, account.Loan.Nb_payments_left, account.Loan.Nb_payments_done, account.Loan.Nb_payments_total, account.Loan.Duration)
 			if err != nil {
 				config.Logger.Error().Err(err).Msg(query)
 				http.Error(w, "", http.StatusInternalServerError)
