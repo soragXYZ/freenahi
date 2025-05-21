@@ -1,7 +1,6 @@
 package loan
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,13 +12,11 @@ import (
 	"freenahiFront/internal/settings"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/lang"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/go-analyze/charts"
 )
 
 const (
@@ -242,7 +239,7 @@ func createLoanTable(app fyne.App) *fyne.Container {
 
 		// =======================================================================================
 		// Top right box
-		nextPeriodPaymentGraph := drawDoughnut(
+		nextPeriodPaymentGraph := helper.DrawDoughnut(
 			[]string{lang.L("Capital"), lang.L("Insurance"), lang.L("Interests")},
 			[]float64{periodCapital, loans[id].Insurance_amount, periodInterest},
 			fyne.NewSize(120, 120),
@@ -298,7 +295,7 @@ func createLoanTable(app fyne.App) *fyne.Container {
 		totalToRefund := loans[id].Next_payment_amount * float64(totalNbPayments)
 		paidInterest := totalToRefund - loans[id].Total_amount
 
-		totalPaymentGraph := drawDoughnut(
+		totalPaymentGraph := helper.DrawDoughnut(
 			[]string{lang.L("Capital"), lang.L("Interests")},
 			[]float64{loans[id].Total_amount, paidInterest},
 			fyne.NewSize(120, 120),
@@ -373,7 +370,7 @@ func createLoanTable(app fyne.App) *fyne.Container {
 		// =======================================================================================
 		// Bottom mid box
 
-		currentPaymentGraph := drawDoughnut(
+		currentPaymentGraph := helper.DrawDoughnut(
 			[]string{lang.L("Capital"), lang.L("Interests")},
 			[]float64{loans[id].Total_amount - remainingCapital, sumPeriodInterest},
 			fyne.NewSize(120, 120),
@@ -463,55 +460,4 @@ func getLoans(app fyne.App) []Loan {
 	}
 
 	return loans
-}
-
-// This function creates an doughnut graph image from the specified data
-func drawDoughnut(xData []string, yData []float64, size fyne.Size, name string) *canvas.Image {
-
-	var finalXData []string
-	var finalYData []float64
-
-	// Remove incorrect values from data set
-	for index, element := range yData {
-
-		if element > 0 {
-			finalXData = append(finalXData, xData[index])
-			finalYData = append(finalYData, element)
-
-		}
-	}
-
-	opt := charts.NewDoughnutChartOptionWithData(finalYData)
-
-	opt.Theme = charts.GetTheme(charts.ThemeSummer).WithBackgroundColor(charts.ColorTransparent)
-
-	opt.Legend = charts.LegendOption{
-		SeriesNames: finalXData,
-		Show:        charts.Ptr(false),
-	}
-
-	fontSize := 30
-	opt.CenterValues = "labels"
-	opt.CenterValuesFontStyle = charts.NewFontStyleWithSize(float64(fontSize))
-
-	p := charts.NewPainter(charts.PainterOptions{
-		OutputFormat: charts.ChartOutputPNG,
-		Width:        15 * fontSize,
-		Height:       15 * fontSize,
-	})
-	err := p.DoughnutChart(opt)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot create doughnut chart")
-		return nil
-	}
-	buf, err := p.Bytes()
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot convert doughnut chart to bytes")
-		return nil
-	}
-	image := canvas.NewImageFromReader(bytes.NewReader(buf), name)
-	image.SetMinSize(size)
-	image.FillMode = canvas.ImageFillContain
-
-	return image
 }

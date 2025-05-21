@@ -87,13 +87,15 @@ func createCompoundCapitalTable(rate float64, duration int, capital int) *fyne.C
 }
 
 // Create the table of costs for an amortizable loan
-func createLoanTable(rate float64, duration int, capital int, insuranceType string) *fyne.Container {
+func createLoanTable(rate float64, duration int, capital int, insuranceType string, insuranceRate float64) (float64, *fyne.Container) {
 
 	mainContainer := container.NewVBox()
 
 	// m = [(C*r)/12] / [1-(1+(r/12))^-n]
-	mensuality := ((float64(capital) * (rate / 100.0)) / 12.0) / (1 - math.Pow(1+(rate/100.0)/12.0, -float64(duration)*12))
+	mensuality := ((float64(capital) * ((rate + insuranceRate) / 100.0)) / 12.0) / (1 - math.Pow(1+((rate+insuranceRate)/100.0)/12.0, -float64(duration)*12))
 	remainingCapital := float64(capital)
+
+	totalInsurancePaid := 0.0
 
 	for i := range duration * 12 {
 		dueDateLabel := widget.NewLabel(strconv.Itoa(i + 1))
@@ -103,17 +105,23 @@ func createLoanTable(rate float64, duration int, capital int, insuranceType stri
 		periodInterestLabel := widget.NewLabel(fmt.Sprintf("%0.2f", periodInterest))
 		periodInterestLabel.Alignment = fyne.TextAlignCenter
 
-		periodCapital := mensuality - periodInterest
-		periodCapitalLabel := widget.NewLabel(fmt.Sprintf("%0.2f", periodCapital))
-		periodCapitalLabel.Alignment = fyne.TextAlignCenter
+		var periodInsurance float64
+		periodInsuranceLabel := widget.NewLabel("Template")
+		periodInsuranceLabel.Alignment = fyne.TextAlignCenter
 
-		var interestCapitalLabel *widget.Label
 		switch insuranceType {
 		case lang.L("Outstanding capital"):
-			interestCapitalLabel = widget.NewLabel("WIP")
+			periodInsurance = insuranceRate / 100 / 12 * float64(remainingCapital)
 		case lang.L("Initial capital"):
-			interestCapitalLabel = widget.NewLabel("WIIIIP")
+			periodInsurance = insuranceRate / 100 / 12 * float64(capital)
 		}
+		periodInsuranceLabel.SetText(fmt.Sprintf("%0.2f", periodInsurance))
+
+		totalInsurancePaid += periodInsurance
+
+		periodCapital := mensuality - periodInterest - periodInsurance
+		periodCapitalLabel := widget.NewLabel(fmt.Sprintf("%0.2f", periodCapital))
+		periodCapitalLabel.Alignment = fyne.TextAlignCenter
 
 		remainingCapital = remainingCapital - periodCapital
 
@@ -121,12 +129,12 @@ func createLoanTable(rate float64, duration int, capital int, insuranceType stri
 			dueDateLabel,
 			periodInterestLabel,
 			periodCapitalLabel,
-			interestCapitalLabel,
+			periodInsuranceLabel,
 		))
 
 	}
 
-	return mainContainer
+	return totalInsurancePaid, mainContainer
 }
 
 func createViewContainer(toolType int) *fyne.Container {
@@ -249,7 +257,7 @@ func createViewContainer(toolType int) *fyne.Container {
 
 	if toolType == loanType {
 
-		insuranceRateLabel := widget.NewLabelWithData(binding.FloatToStringWithFormat(insuranceRateData, lang.L("Insurance interest rate")+": %0.2f"))
+		insuranceRateLabel := widget.NewLabelWithData(binding.FloatToStringWithFormat(insuranceRateData, lang.L("Insurance interest rate")+": %0.2f %%"))
 		insuranceRateLabel.Alignment = fyne.TextAlignCenter
 
 		insuranceRateEntry := widget.NewEntryWithData(binding.FloatToString(insuranceRateData))
@@ -382,22 +390,36 @@ func createViewContainer(toolType int) *fyne.Container {
 		rate, _ := rateData.Get()
 		duration, _ := durationData.Get()
 		capital, _ := capitalData.Get()
+		insuranceRate, _ := insuranceRateData.Get()
 
 		// Replace incorrect values if needed
 		if rate < minRate {
 			rateData.Set(minRate)
+			rate = minRate
 		} else if rate > maxRate {
 			rateData.Set(maxRate)
+			rate = maxRate
 		}
 
 		if duration < minDuration {
 			durationData.Set(minDuration)
+			duration = minDuration
 		} else if duration > maxDuration {
 			durationData.Set(maxDuration)
+			duration = maxDuration
 		}
 
 		if capital < minCapital {
 			capitalData.Set(minCapital)
+			capital = minCapital
+		}
+
+		if insuranceRate < minRate {
+			insuranceRateData.Set(minRate)
+			insuranceRate = minRate
+		} else if insuranceRate > maxRate {
+			insuranceRateData.Set(maxRate)
+			insuranceRate = maxRate
 		}
 
 		var result int
@@ -433,34 +455,47 @@ func createViewContainer(toolType int) *fyne.Container {
 
 		case loanType:
 
-			capitalTableContainer.Content = createLoanTable(rate, duration, capital, insuranceType)
+			insurancePaid, loanTable := createLoanTable(rate, duration, capital, insuranceType, insuranceRate)
+			capitalTableContainer.Content = loanTable
 
 			// m = [(C*r)/12] / [1-(1+(r/12))^-n]
-			mensuality := ((float64(capital) * (rate / 100.0)) / 12.0) / (1 - math.Pow(1+(rate/100.0)/12.0, -float64(duration)*12))
+			mensuality := ((float64(capital) * ((rate + insuranceRate) / 100.0)) / 12.0) / (1 - math.Pow(1+((rate+insuranceRate)/100.0)/12.0, -float64(duration)*12))
 			mensualityLabel := widget.NewLabel(fmt.Sprintf("%s: %0.2f", lang.L("Mensuality"), mensuality))
-			mensualityLabel.TextStyle.Bold = true
 			mensualityLabel.Alignment = fyne.TextAlignCenter
 
-			totalRefunded := helper.ValueSpacer(fmt.Sprintf("%0.2f", mensuality*12.0*float64(duration)))
+			totalRefunded := helper.ValueSpacer(fmt.Sprintf("%0.2f", insurancePaid+mensuality*12.0*float64(duration)))
 			totalRefundedLabel := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total refunded"), totalRefunded))
 			totalRefundedLabel.TextStyle.Bold = true
-			totalRefundedLabel.SizeName = theme.SizeNameHeadingText
+			totalRefundedLabel.SizeName = theme.SizeNameSubHeadingText
 			totalRefundedLabel.Alignment = fyne.TextAlignCenter
 
 			paidInterest := mensuality*12.0*float64(duration) - float64(capital)
 			paidInterestFormatted := helper.ValueSpacer(fmt.Sprintf("%0.2f", paidInterest))
 
-			paidInterestLabel := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Interest paid"), paidInterestFormatted))
-			paidInterestLabel.TextStyle.Bold = true
-			paidInterestLabel.SizeName = theme.SizeNameHeadingText
+			paidInterestLabel := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Interests cost"), paidInterestFormatted))
 			paidInterestLabel.Alignment = fyne.TextAlignCenter
 
-			loanCostLabel := widget.NewLabel(fmt.Sprintf("%s: %0.2f %%", lang.L("Loan cost"), 100*paidInterest/float64(capital)))
-			loanCostLabel.TextStyle.Bold = true
-			loanCostLabel.Alignment = fyne.TextAlignCenter
+			insurancePaidFormatted := helper.ValueSpacer(fmt.Sprintf("%0.2f", insurancePaid))
+			insurancePaidLabel := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Insurance cost"), insurancePaidFormatted))
+			insurancePaidLabel.Alignment = fyne.TextAlignCenter
+
+			graph := helper.DrawDoughnut(
+				[]string{lang.L("Capital"), lang.L("Insurance"), lang.L("Interests")},
+				[]float64{float64(capital), insurancePaid, paidInterest},
+				fyne.NewSize(12, 12),
+				"Loan cost",
+			)
 
 			resultContainer.RemoveAll()
-			resultContainer.Add(container.NewVBox(totalRefundedLabel, paidInterestLabel, loanCostLabel, mensualityLabel))
+			resultContainer.Add(container.NewGridWithColumns(2,
+				container.NewVBox(
+					totalRefundedLabel,
+					paidInterestLabel,
+					insurancePaidLabel,
+					mensualityLabel,
+				),
+				graph,
+			))
 
 		}
 

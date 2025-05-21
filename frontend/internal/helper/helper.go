@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"bytes"
 	"maps"
 	"os"
 	"path/filepath"
@@ -8,9 +9,11 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
+	"github.com/go-analyze/charts"
 	"github.com/rs/zerolog"
 )
 
@@ -160,4 +163,55 @@ func reverse(s string) string {
 	}
 
 	return string(rns)
+}
+
+// This function creates an doughnut graph image from the specified data
+func DrawDoughnut(xData []string, yData []float64, minSize fyne.Size, name string) *canvas.Image {
+
+	var finalXData []string
+	var finalYData []float64
+
+	// Remove incorrect values from data set
+	for index, element := range yData {
+
+		if element > 0 {
+			finalXData = append(finalXData, xData[index])
+			finalYData = append(finalYData, element)
+
+		}
+	}
+
+	opt := charts.NewDoughnutChartOptionWithData(finalYData)
+
+	opt.Theme = charts.GetTheme(charts.ThemeSummer).WithBackgroundColor(charts.ColorTransparent)
+
+	opt.Legend = charts.LegendOption{
+		SeriesNames: finalXData,
+		Show:        charts.Ptr(false),
+	}
+
+	fontSize := 30
+	opt.CenterValues = "labels"
+	opt.CenterValuesFontStyle = charts.NewFontStyleWithSize(float64(fontSize))
+
+	p := charts.NewPainter(charts.PainterOptions{
+		OutputFormat: charts.ChartOutputPNG,
+		Width:        450,
+		Height:       450,
+	})
+	err := p.DoughnutChart(opt)
+	if err != nil {
+		Logger.Error().Err(err).Msg("Cannot create doughnut chart")
+		return nil
+	}
+	buf, err := p.Bytes()
+	if err != nil {
+		Logger.Error().Err(err).Msg("Cannot convert doughnut chart to bytes")
+		return nil
+	}
+	image := canvas.NewImageFromReader(bytes.NewReader(buf), name)
+	image.SetMinSize(minSize)
+	image.FillMode = canvas.ImageFillContain
+
+	return image
 }
