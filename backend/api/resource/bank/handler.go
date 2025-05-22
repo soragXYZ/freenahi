@@ -1,6 +1,7 @@
 package bank
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 
@@ -11,8 +12,39 @@ func GetAccounts(w http.ResponseWriter, r *http.Request) {
 
 	var accounts []BankAccount
 
-	var query string = "SELECT * FROM bankAccount ORDER BY original_name"
-	rows, err := config.DB.Query(query)
+	accountType := r.URL.Query().Get("type")
+
+	var rows *sql.Rows
+	var err error
+	var query string
+
+	if accountType == "" {
+		query = "SELECT * FROM bankAccount ORDER BY original_name"
+		rows, err = config.DB.Query(query)
+
+	} else { // filter by account type if parameter is set
+
+		switch accountType { // https://docs.powens.com/api-reference/products/data-aggregation/bank-account-types#accounttypename-values
+		case "article83", "capitalisation", "card", "checking",
+			"crowdlending", "deposit", "ldds", "lifeinsurance",
+			"loan", "madelin", "market", "pea", "pee", "per",
+			"perco", "perp", "real_estate", "rsp", "savings", "unknown":
+
+			query = "SELECT * FROM bankAccount WHERE account_type=? ORDER BY balance"
+			rows, err = config.DB.Query(query, accountType)
+
+		default:
+			config.Logger.Warn().Str("type", accountType).Msg("Unsupported Powens account type")
+			http.Error(w,
+				"Unsupported account type. Must be: article83, capitalisation, card, checking,"+
+					"crowdlending, deposit, ldds, lifeinsurance,"+
+					"loan, madelin, market, pea, pee, per,"+
+					"perco, perp, real_estate, rsp, savings, unknown",
+				http.StatusBadRequest)
+			return
+		}
+	}
+
 	if err != nil {
 		config.Logger.Error().Err(err).Msg(query)
 		http.Error(w, "", http.StatusInternalServerError)

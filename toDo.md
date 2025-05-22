@@ -13,6 +13,7 @@
 - Complete it
 
 * Frontend
+- Loans: deal with revolving credit
 - Add a tutorial to create the backend and Powens account
 - Tx, accounts and loans: add filter and reload options
 - Remove kx-widget dependency ?
