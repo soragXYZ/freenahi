@@ -30,7 +30,7 @@ func GetAccounts(w http.ResponseWriter, r *http.Request) {
 			"loan", "madelin", "market", "pea", "pee", "per",
 			"perco", "perp", "real_estate", "rsp", "savings", "unknown":
 
-			query = "SELECT * FROM bankAccount WHERE account_type=? ORDER BY balance"
+			query = "SELECT * FROM bankAccount WHERE account_type=? ORDER BY balance DESC"
 			rows, err = config.DB.Query(query, accountType)
 
 		default:

@@ -17,6 +17,9 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
+	catppuccin "github.com/mbaklor/fyne-catppuccin"
+
 	kxwidget "github.com/ErikKalkoken/fyne-kx/widget"
 )
 
@@ -412,12 +415,16 @@ func MakeSettingsPage(title string, content fyne.CanvasObject, actions []Setting
 
 func SetTheme(value string, app fyne.App) {
 	switch value {
-	case "light":
+	case lang.L("Light"):
 		app.Settings().SetTheme(&customTheme.ForcedVariant{Theme: theme.DefaultTheme(), Variant: theme.VariantLight})
-	case "dark":
+	case lang.L("Dark"):
 		app.Settings().SetTheme(&customTheme.ForcedVariant{Theme: theme.DefaultTheme(), Variant: theme.VariantDark})
+	case lang.L("Pastel"):
+		ctp := catppuccin.New()
+		ctp.SetFlavor(catppuccin.Frappe)
+		app.Settings().SetTheme(ctp)
 	default:
-		helper.Logger.Fatal().Msgf("Unsupported value '%s' for theme. Should be light or dark", value)
+		helper.Logger.Fatal().Msgf("Unsupported value '%s' for theme. Should be Light, Dark or Pastel", value)
 	}
 	app.Preferences().SetString(PreferenceTheme, value)
 	helper.Logger.Info().Msgf("Theme set to %s", value)
@@ -469,7 +476,7 @@ func NewSettings(app fyne.App, topWindow fyne.Window) {
 	theme := NewSettingItemOptions(
 		lang.L("Theme"),
 		lang.L("Theme details"),
-		[]string{"light", "dark"},
+		[]string{lang.L("Light"), lang.L("Dark"), lang.L("Pastel")},
 		ThemeDefault,
 		func() string {
 			return app.Preferences().StringWithFallback(PreferenceTheme, ThemeDefault)

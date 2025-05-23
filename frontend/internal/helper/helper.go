@@ -190,7 +190,12 @@ func DrawDoughnut(xData []string, yData []float64, minSize fyne.Size, name strin
 		Show:        charts.Ptr(false),
 	}
 
-	fontSize := 30
+	// Deactivate legends if needed
+	// for i := range opt.SeriesList {
+	// 	opt.SeriesList[i].Label.Show = charts.Ptr(false)
+	// }
+
+	fontSize := 20
 	opt.CenterValues = "labels"
 	opt.CenterValuesFontStyle = charts.NewFontStyleWithSize(float64(fontSize))
 

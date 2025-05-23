@@ -8,6 +8,7 @@
 - Subrouting for endpoints ?
     https://codewithflash.com/advanced-routing-with-go-122
     https://dev.to/kengowada/go-routing-101-handling-and-grouping-routes-with-nethttp-4k0e
+- Add bank name account / create a new table ?
 
 * Documentation
 - Complete it
@@ -16,5 +17,6 @@
 - Loans: deal with revolving credit
 - Add a tutorial to create the backend and Powens account
 - Tx, accounts and loans: add filter and reload options
-- Remove kx-widget dependency ?
+- Do not load everything as start up (Tabs mechanism), use tab on selected to fill the data ?
+- Add a possibility to export as PDF ?
 - Add tooltips ? https://github.com/dweymouth/fyne-tooltip

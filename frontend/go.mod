@@ -10,8 +10,10 @@ require (
 )
 
 require (
+	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	github.com/mbaklor/fyne-catppuccin v0.0.2 // indirect
 )
 
 require (
@@ -24,7 +26,7 @@ require (
 	github.com/fyne-io/glfw-js v0.2.0 // indirect
 	github.com/fyne-io/image v0.1.1 // indirect
 	github.com/fyne-io/oksvg v0.1.0 // indirect
-	github.com/go-analyze/charts v0.5.10
+	github.com/go-analyze/charts v0.5.11
 	github.com/go-gl/gl v0.0.0-20231021071112-07e5d0ea2e71 // indirect
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20250301202403-da16c1255728 // indirect
 	github.com/go-text/render v0.2.0 // indirect

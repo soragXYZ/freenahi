@@ -110,7 +110,7 @@ func createAccountTable(app fyne.App) *widget.Table {
 	bankAccounts := []BankAccount{{
 		Iban: "columnHeader",
 	}}
-	bankAccounts = append(bankAccounts, getAccounts(app)...)
+	bankAccounts = append(bankAccounts, GetBankAccounts(app, "")...)
 
 	accountList := widget.NewTable(
 		func() (int, int) {
@@ -271,13 +271,18 @@ func ibanSpacer(IBAN string) string {
 
 // ToDo: modify the function to return an error and display it if sth went wrong in the backend
 // Call the backend endpoint "/accounts" and retrieve bank accounts
-func getAccounts(app fyne.App) []BankAccount {
+func GetBankAccounts(app fyne.App, accountType string) []BankAccount {
 
 	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
 	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
 	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
 
-	url := fmt.Sprintf("%s://%s:%s/bank_account", backendProtocol, backendIp, backendPort)
+	var url string
+	if accountType == "" {
+		url = fmt.Sprintf("%s://%s:%s/bank_account/", backendProtocol, backendIp, backendPort)
+	} else {
+		url = fmt.Sprintf("%s://%s:%s/bank_account/?type=%s", backendProtocol, backendIp, backendPort, accountType)
+	}
 	resp, err := http.Get(url)
 	if err != nil {
 		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
