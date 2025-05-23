@@ -84,36 +84,35 @@ func createLoanTable(app fyne.App) *fyne.Container {
 			return len(loans)
 		},
 		func() fyne.CanvasObject {
-			return container.NewGridWithColumns(3, widget.NewLabel("Template"), widget.NewLabel("Template"), widget.NewLabel("Template"))
+			item1 := widget.NewLabel("Template")
+			item1.Alignment = fyne.TextAlignCenter
+
+			item2 := widget.NewLabel("Template")
+			item2.Alignment = fyne.TextAlignCenter
+
+			item3 := widget.NewLabel("Template")
+			item3.Alignment = fyne.TextAlignCenter
+			return container.NewGridWithColumns(3, item1, item2, item3)
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 
-			// Clean the cell from the previous value
-			item := o.(*fyne.Container)
-			item.RemoveAll()
+			subscriptionDateItem := o.(*fyne.Container).Objects[0].(*widget.Label)
+			amountItem := o.(*fyne.Container).Objects[1].(*widget.Label)
+			durationItem := o.(*fyne.Container).Objects[2].(*widget.Label)
 
-			var subscriptionDateItem *widget.Label
 			if loans[i].Subscription_date != "" { // Parse the date and keep only YYYY-MM-DD
 				parsedSubscriptionDate, err := time.Parse("2006-01-02 15:04:05", loans[i].Subscription_date)
 				if err != nil {
 					helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", loans[i].Subscription_date)
 				}
-				subscriptionDateItem = widget.NewLabel(parsedSubscriptionDate.Format("2006-01-02"))
+				subscriptionDateItem.SetText(parsedSubscriptionDate.Format("2006-01-02"))
 			} else {
-				subscriptionDateItem = widget.NewLabel(lang.L("Irrelevant"))
+				subscriptionDateItem.SetText(lang.L("Irrelevant"))
 			}
 
-			subscriptionDateItem.Alignment = fyne.TextAlignCenter
+			amountItem.SetText(helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[i].Total_amount)))
 
-			amountItem := widget.NewLabel(helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[i].Total_amount)))
-			amountItem.Alignment = fyne.TextAlignCenter
-
-			durationItem := widget.NewLabel(fmt.Sprintf("%d", loans[i].Duration))
-			durationItem.Alignment = fyne.TextAlignCenter
-
-			item.Add(subscriptionDateItem)
-			item.Add(amountItem)
-			item.Add(durationItem)
+			durationItem.SetText(fmt.Sprintf("%d", loans[i].Duration))
 		},
 	)
 
