@@ -47,6 +47,58 @@ type Transaction struct {
 	Original_wording string  `json:"original_wording"`
 }
 
+// A standard table, but which has resizabled column width
+type customTable struct {
+	widget.Table
+
+	pinnedColumnWidth, dateColumnWidth, valueColumnWidth, typeColumnWidth, detailsColumnWidth, deleteColumnWidth float32
+}
+
+func newCustomTable(pinnedColumnWidth, dateColumnWidth, valueColumnWidth, typeColumnWidth, detailsColumnWidth, deleteColumnWidth float32, length func() (rows int, cols int), create func() fyne.CanvasObject, update func(widget.TableCellID, fyne.CanvasObject)) *customTable {
+	table := &customTable{
+		pinnedColumnWidth:  pinnedColumnWidth,
+		dateColumnWidth:    dateColumnWidth,
+		valueColumnWidth:   valueColumnWidth,
+		typeColumnWidth:    typeColumnWidth,
+		detailsColumnWidth: detailsColumnWidth,
+		deleteColumnWidth:  deleteColumnWidth,
+	}
+	table.ExtendBaseWidget(table)
+
+	table.Length = length
+	table.CreateCell = create
+	table.UpdateCell = update
+
+	return table
+}
+
+// Function called when the table is resized: auto adjust the column width
+func (t *customTable) Resize(size fyne.Size) {
+
+	// Note that sometimes this function is not called even if it should
+	// For example, when you quickly reduce the window size
+	// Thus, the table width is not correctly auto adjusted,
+	// if the table is too big a scroller appears
+	// No workaround ATM
+
+	t.Table.SetColumnWidth(pinnedColumn, t.pinnedColumnWidth)
+	t.Table.SetColumnWidth(dateColumn, t.dateColumnWidth)
+	t.Table.SetColumnWidth(valueColumn, t.valueColumnWidth)
+	t.Table.SetColumnWidth(typeColumn, t.typeColumnWidth)
+	t.Table.SetColumnWidth(deleteColumn, t.deleteColumnWidth)
+
+	// Get the remaining space for the column "details"
+	value := t.Table.Size().Width - 5*4 - t.pinnedColumnWidth - t.dateColumnWidth - t.valueColumnWidth - t.typeColumnWidth - t.deleteColumnWidth
+
+	if value > t.detailsColumnWidth {
+		t.Table.SetColumnWidth(detailsColumn, value)
+	} else {
+		t.Table.SetColumnWidth(detailsColumn, t.detailsColumnWidth)
+	}
+
+	t.Table.Resize(size)
+}
+
 // Create the transaction screen
 func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 
@@ -56,7 +108,7 @@ func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 }
 
 // Create the transaction table
-func createTransactionTable(app fyne.App, win fyne.Window) *widget.Table {
+func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 
 	pinnedLabel := widget.NewLabel(lang.L("Pinned"))
 	pinnedLabel.TextStyle.Bold = true
@@ -82,47 +134,34 @@ func createTransactionTable(app fyne.App, win fyne.Window) *widget.Table {
 
 	testIconSize := widget.NewIcon(theme.RadioButtonCheckedIcon()).MinSize().Width
 
-	// Fill txs with the first page of txs. The first tx is a special item only used for the table header (no real data)
-	txs := []Transaction{{
-		Original_wording: "columnHeader",
-	}}
+	// Fill txs with the first page of txs.
+	txs := []Transaction{}
 	txs = append(txs, getTransactions(1, app)...)
 	var txsPerPage = 50 // Default number of txs returned by the backend when querrying the endpoint "/transaction"
 	var reachedDataEnd = false
 	var threshold = 5 // Ask more data from the backend if we only have less than "threshold" txs left to display
 
-	txList := widget.NewTable(
+	txList := newCustomTable(
+
+		// We set the width of the columns, ie the max between the language name header size and actual value
+		// For example, the max between "Value" and "-123456123.00", or "Montant" and "-123456123.00" in french
+		float32(math.Max(float64(testIconSize), float64(pinnedLabel.MinSize().Width))),
+		float32(math.Max(float64(testDateLabelSize), float64(dateLabel.MinSize().Width))),
+		float32(math.Max(float64(testValueLabelSize), float64(valueLabel.MinSize().Width))),
+		float32(math.Max(float64(testTypeLabelSize), float64(typeLabel.MinSize().Width))),
+		float32(math.Max(float64(testDetailsLabelSize), float64(detailsLabel.MinSize().Width))),
+		float32(math.Max(float64(testIconSize), float64(deleteLabel.MinSize().Width))),
+
 		func() (int, int) {
 			return len(txs), numberOfColumn
 		},
 		func() fyne.CanvasObject {
-			return container.NewHBox(widget.NewLabel("template"))
+			return container.NewHBox(widget.NewLabel("Template"))
 		},
 		func(id widget.TableCellID, o fyne.CanvasObject) {
 
 			// Clean the cell from the previous value
 			o.(*fyne.Container).RemoveAll()
-
-			// If we are on the first row, we set special values and we will pin this row to create a header with it
-			if id.Row == 0 {
-				switch id.Col {
-				case pinnedColumn:
-					helper.AddHAligned(o, pinnedLabel)
-				case dateColumn:
-					helper.AddHAligned(o, dateLabel)
-				case valueColumn:
-					helper.AddHAligned(o, valueLabel)
-				case typeColumn:
-					helper.AddHAligned(o, typeLabel)
-				case detailsColumn:
-					helper.AddHAligned(o, detailsLabel)
-				case deleteColumn:
-					helper.AddHAligned(o, deleteLabel)
-				default:
-					helper.Logger.Fatal().Msg("Too much column in the grid")
-				}
-				return
-			}
 
 			// Update the cell by adding content according to its "type" (icon, date, value, type, details, delete)
 			switch id.Col {
@@ -157,6 +196,13 @@ func createTransactionTable(app fyne.App, win fyne.Window) *widget.Table {
 
 			case detailsColumn:
 				scroller := container.NewHScroll(widget.NewLabel(txs[id.Row].Original_wording))
+
+				// To Do: calculate the size of txTable (itself?), get a scroller with cell size if not large enough
+				// Otherwise, simple label and center text ?
+				// value := win.Canvas().Size().Width - 5*4 - float32(math.Max(float64(testIconSize), float64(pinnedLabel.MinSize().Width))) - float32(math.Max(float64(testDateLabelSize), float64(dateLabel.MinSize().Width))) - float32(math.Max(float64(testValueLabelSize), float64(valueLabel.MinSize().Width))) - float32(math.Max(float64(testTypeLabelSize), float64(typeLabel.MinSize().Width))) - float32(math.Max(float64(testIconSize), float64(deleteLabel.MinSize().Width)))
+				// zzz := float32(math.Max(math.Max(float64(testDetailsLabelSize), float64(detailsLabel.MinSize().Width)), float64(value)))
+				// scroller.SetMinSize(fyne.NewSize(zzz, scroller.MinSize().Height))
+
 				scroller.SetMinSize(fyne.NewSize(testDetailsLabelSize, scroller.MinSize().Height))
 				helper.AddHAligned(o, scroller)
 
@@ -182,12 +228,34 @@ func createTransactionTable(app fyne.App, win fyne.Window) *widget.Table {
 		},
 	)
 
+	// Add header to the table
+	txList.ShowHeaderRow = true
+	txList.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
+
+		label := o.(*widget.Label)
+
+		switch id.Col {
+		case pinnedColumn:
+			label.SetText(lang.L("Pinned"))
+		case dateColumn:
+			label.SetText(lang.L("Date"))
+		case valueColumn:
+			label.SetText(lang.L("Value"))
+		case typeColumn:
+			label.SetText(lang.L("Type"))
+		case detailsColumn:
+			label.SetText(lang.L("Details"))
+		case deleteColumn:
+			label.SetText(lang.L("Delete"))
+		default:
+			helper.Logger.Fatal().Msg("Too much column in the grid for tx header")
+		}
+	}
+
 	txList.OnSelected = func(id widget.TableCellID) {
 
-		// Do nothing if the user selected the column header
-		if id.Row == 0 {
-			return
-		}
+		// Dirty "workaround" for the customTable Resize issue
+		txList.Resize(txList.Size())
 
 		// Update the cell when selected by modifying content according to its "type" (icon, date, value, type, details, delete)
 		switch id.Col {
@@ -196,11 +264,8 @@ func createTransactionTable(app fyne.App, win fyne.Window) *widget.Table {
 			txList.RefreshItem(widget.TableCellID{Row: id.Row, Col: pinnedColumn})
 			updateTransaction(txs[id.Row], app)
 
-		case dateColumn:
-
-		case valueColumn:
-
-		case typeColumn:
+		case dateColumn, valueColumn, typeColumn:
+			// Nothing to do here, pass
 
 		case detailsColumn:
 
@@ -249,35 +314,6 @@ func createTransactionTable(app fyne.App, win fyne.Window) *widget.Table {
 		}()
 
 	}
-
-	// We set the width of the columns, ie the max between the language name header size and actual value
-	// For example, the max between "Value" and "-123456123.00", or "Montant" and "-123456123.00" in french
-	txList.SetColumnWidth(pinnedColumn, float32(math.Max(
-		float64(testIconSize),
-		float64(pinnedLabel.MinSize().Width))),
-	)
-	txList.SetColumnWidth(dateColumn, float32(math.Max(
-		float64(testDateLabelSize),
-		float64(dateLabel.MinSize().Width))),
-	)
-	txList.SetColumnWidth(valueColumn, float32(math.Max(
-		float64(testValueLabelSize),
-		float64(valueLabel.MinSize().Width))),
-	)
-	txList.SetColumnWidth(typeColumn, float32(math.Max(
-		float64(testTypeLabelSize),
-		float64(typeLabel.MinSize().Width))),
-	)
-	txList.SetColumnWidth(detailsColumn, float32(math.Max(
-		float64(testDetailsLabelSize),
-		float64(detailsLabel.MinSize().Width))),
-	)
-	txList.SetColumnWidth(deleteColumn, float32(math.Max(
-		float64(testIconSize),
-		float64(deleteLabel.MinSize().Width))),
-	)
-
-	txList.StickyRowCount = 1 // Basically, we are setting a table header because the first row contains special data
 
 	return txList
 }
