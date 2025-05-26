@@ -19,6 +19,11 @@ import (
 )
 
 const (
+	subscriptionDateColumn int = iota
+	valueColumn
+	durationColumn
+	numberOfColumn
+
 	unselectTime = 200 * time.Millisecond
 )
 
@@ -47,8 +52,42 @@ type Loan struct {
 	Loan_type            string  `json:"type"`
 }
 
+// A standard table, but which has resizabled column width
+type customTable struct {
+	widget.Table
+}
+
+func newCustomTable(length func() (rows int, cols int), create func() fyne.CanvasObject, update func(widget.TableCellID, fyne.CanvasObject)) *customTable {
+	table := &customTable{}
+	table.ExtendBaseWidget(table)
+
+	table.Length = length
+	table.CreateCell = create
+	table.UpdateCell = update
+
+	return table
+}
+
+// Function called when the table is resized: auto adjust the column width
+func (t *customTable) Resize(size fyne.Size) {
+
+	// Note that sometimes this function is not called even if it should
+	// For example, when you quickly reduce the window size
+	// Thus, the table width is not correctly auto adjusted,
+	// the table is too big a scroller appears
+	// No workaround ATM
+
+	_, columns := t.Length()
+	for i := range columns {
+		// Make columns equally spaced
+		t.Table.SetColumnWidth(i, t.Table.Size().Width/float32(columns)-3)
+	}
+
+	t.Table.Resize(size)
+}
+
 // Create the main view for loans
-func NewLoanScreen(app fyne.App, win fyne.Window) *fyne.Container {
+func NewLoanScreen(app fyne.App, win fyne.Window) *customTable {
 
 	loanTable := createLoanTable(app)
 
@@ -56,68 +95,70 @@ func NewLoanScreen(app fyne.App, win fyne.Window) *fyne.Container {
 }
 
 // Create the table of of loan
-func createLoanTable(app fyne.App) *fyne.Container {
-
-	subscriptionDateLabel := widget.NewLabel(lang.L("Subscription date"))
-	subscriptionDateLabel.Alignment = fyne.TextAlignCenter
-	subscriptionDateLabel.TextStyle.Bold = true
-
-	valueHeaderLabel := widget.NewLabel(lang.L("Value"))
-	valueHeaderLabel.Alignment = fyne.TextAlignCenter
-	valueHeaderLabel.TextStyle.Bold = true
-
-	durationHeaderLabel := widget.NewLabel(lang.L("Duration"))
-	durationHeaderLabel.Alignment = fyne.TextAlignCenter
-	durationHeaderLabel.TextStyle.Bold = true
-
-	headerContainer := container.NewGridWithColumns(
-		3,
-		subscriptionDateLabel,
-		valueHeaderLabel,
-		durationHeaderLabel,
-	)
+func createLoanTable(app fyne.App) *customTable {
 
 	loans := getLoans(app)
 
-	loanTable := widget.NewList(
-		func() int {
-			return len(loans)
+	loanTable := newCustomTable(
+		func() (int, int) {
+			return len(loans), numberOfColumn
 		},
 		func() fyne.CanvasObject {
-			item1 := widget.NewLabel("Template")
-			item1.Alignment = fyne.TextAlignCenter
-
-			item2 := widget.NewLabel("Template")
-			item2.Alignment = fyne.TextAlignCenter
-
-			item3 := widget.NewLabel("Template")
-			item3.Alignment = fyne.TextAlignCenter
-			return container.NewGridWithColumns(3, item1, item2, item3)
+			item := widget.NewLabel("Template")
+			item.Alignment = fyne.TextAlignCenter
+			return item
 		},
-		func(i widget.ListItemID, o fyne.CanvasObject) {
+		func(id widget.TableCellID, o fyne.CanvasObject) {
 
-			subscriptionDateItem := o.(*fyne.Container).Objects[0].(*widget.Label)
-			amountItem := o.(*fyne.Container).Objects[1].(*widget.Label)
-			durationItem := o.(*fyne.Container).Objects[2].(*widget.Label)
+			item := o.(*widget.Label)
 
-			if loans[i].Subscription_date != "" { // Parse the date and keep only YYYY-MM-DD
-				parsedSubscriptionDate, err := time.Parse("2006-01-02 15:04:05", loans[i].Subscription_date)
-				if err != nil {
-					helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", loans[i].Subscription_date)
+			switch id.Col {
+			case subscriptionDateColumn:
+				if loans[id.Row].Subscription_date != "" { // Parse the date and keep only YYYY-MM-DD
+					parsedSubscriptionDate, err := time.Parse("2006-01-02 15:04:05", loans[id.Row].Subscription_date)
+					if err != nil {
+						helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", loans[id.Row].Subscription_date)
+					}
+					item.SetText(parsedSubscriptionDate.Format("2006-01-02"))
+				} else {
+					item.SetText(lang.L("Irrelevant"))
 				}
-				subscriptionDateItem.SetText(parsedSubscriptionDate.Format("2006-01-02"))
-			} else {
-				subscriptionDateItem.SetText(lang.L("Irrelevant"))
+
+			case valueColumn:
+				item.SetText(helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[id.Row].Total_amount)))
+
+			case durationColumn:
+				item.SetText(fmt.Sprintf("%d", loans[id.Row].Duration))
+			default:
+				helper.Logger.Fatal().Msg("Too much column in the grid")
 			}
-
-			amountItem.SetText(helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[i].Total_amount)))
-
-			durationItem.SetText(fmt.Sprintf("%d", loans[i].Duration))
 		},
 	)
 
+	// Add header to the table
+	loanTable.ShowHeaderRow = true
+	loanTable.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
+
+		l := o.(*widget.Label)
+
+		switch id.Col {
+
+		case subscriptionDateColumn:
+			l.SetText(lang.L("Subscription date"))
+		case valueColumn:
+			l.SetText(lang.L("Value"))
+		case durationColumn:
+			l.SetText(lang.L("Duration"))
+		default:
+			helper.Logger.Fatal().Msg("Too much column in the grid for header")
+		}
+	}
+
 	// Display additional details when a loan is clicked on
-	loanTable.OnSelected = func(id widget.ListItemID) {
+	loanTable.OnSelected = func(id widget.TableCellID) {
+
+		// Dirty "workaround" for the customTable Resize issue
+		loanTable.Resize(loanTable.Size())
 
 		go func() { // Unselect the cell after some time
 			time.Sleep(unselectTime)
@@ -126,20 +167,20 @@ func createLoanTable(app fyne.App) *fyne.Container {
 			})
 		}()
 
-		w := app.NewWindow(fmt.Sprintf("%s : %d", lang.L("Loan"), id))
+		w := app.NewWindow(fmt.Sprintf("%s : %d", lang.L("Loan"), id.Row))
 		w.CenterOnScreen()
 
 		// Calculate the interest and capital reimbursed for the current (n+1) mensuality
-		remainingCapital := loans[id].Total_amount
+		remainingCapital := loans[id.Row].Total_amount
 
 		var periodInterest float64    // The interest amount for the current (n+1) mensuality
 		var sumPeriodInterest float64 // The sum of interests paid for this loan at the moment
 		var periodCapital float64
 
-		for range loans[id].Nb_payments_done {
+		for range loans[id.Row].Nb_payments_done {
 
-			periodInterest = loans[id].Rate / 100 * float64(remainingCapital) / 12
-			periodCapital = loans[id].Next_payment_amount - loans[id].Insurance_amount - periodInterest
+			periodInterest = loans[id.Row].Rate / 100 * float64(remainingCapital) / 12
+			periodCapital = loans[id.Row].Next_payment_amount - loans[id.Row].Insurance_amount - periodInterest
 
 			sumPeriodInterest += periodInterest
 			remainingCapital = remainingCapital - periodCapital
@@ -147,33 +188,33 @@ func createLoanTable(app fyne.App) *fyne.Container {
 
 		// =======================================================================================
 		// Top Left Box
-		loanTypeItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Type"), lang.L(loans[id].Loan_type)))
+		loanTypeItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Type"), lang.L(loans[id.Row].Loan_type)))
 		loanTypeItem.Alignment = fyne.TextAlignCenter
 		loanTypeItem.SizeName = theme.SizeNameSubHeadingText
 
-		amountItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Amount"), helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[id].Total_amount))))
+		amountItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Amount"), helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[id.Row].Total_amount))))
 		amountItem.Alignment = fyne.TextAlignCenter
 		amountItem.SizeName = theme.SizeNameSubHeadingText
 
-		durationItem := widget.NewLabel(fmt.Sprintf("%s: %d", lang.L("Duration"), loans[id].Nb_payments_total))
+		durationItem := widget.NewLabel(fmt.Sprintf("%s: %d", lang.L("Duration"), loans[id.Row].Nb_payments_total))
 		durationItem.Alignment = fyne.TextAlignCenter
 		durationItem.SizeName = theme.SizeNameSubHeadingText
 
-		rateItem := widget.NewLabel(fmt.Sprintf("%s: %0.2f %%", lang.L("Rate"), loans[id].Rate))
+		rateItem := widget.NewLabel(fmt.Sprintf("%s: %0.2f %%", lang.L("Rate"), loans[id.Row].Rate))
 		rateItem.Alignment = fyne.TextAlignCenter
 		rateItem.SizeName = theme.SizeNameSubHeadingText
 
-		mensualitiesLeftItem := widget.NewLabel(fmt.Sprintf("%s: %d", lang.L("Mensualities left"), loans[id].Nb_payments_left))
+		mensualitiesLeftItem := widget.NewLabel(fmt.Sprintf("%s: %d", lang.L("Mensualities left"), loans[id.Row].Nb_payments_left))
 		mensualitiesLeftItem.Alignment = fyne.TextAlignCenter
 
-		mensualitiesPaidItem := widget.NewLabel(fmt.Sprintf("%s: %d", lang.L("Mensualities paid"), loans[id].Nb_payments_done))
+		mensualitiesPaidItem := widget.NewLabel(fmt.Sprintf("%s: %d", lang.L("Mensualities paid"), loans[id.Row].Nb_payments_done))
 		mensualitiesPaidItem.Alignment = fyne.TextAlignCenter
 
 		var endingDateItem *widget.Label
-		if loans[id].Maturity_date != "" {
-			endingDate, err := time.Parse("2006-01-02 15:04:05", loans[id].Maturity_date)
+		if loans[id.Row].Maturity_date != "" {
+			endingDate, err := time.Parse("2006-01-02 15:04:05", loans[id.Row].Maturity_date)
 			if err != nil {
-				helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", loans[id].Maturity_date)
+				helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", loans[id.Row].Maturity_date)
 			}
 
 			endingDateItem = widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Ending date"), endingDate.Format("2006-01-02")))
@@ -208,12 +249,12 @@ func createLoanTable(app fyne.App) *fyne.Container {
 		// Top right box
 		nextPeriodPaymentGraph := helper.DrawDoughnut(
 			[]string{lang.L("Capital"), lang.L("Insurance"), lang.L("Interests")},
-			[]float64{periodCapital, loans[id].Insurance_amount, periodInterest},
+			[]float64{periodCapital, loans[id.Row].Insurance_amount, periodInterest},
 			fyne.NewSize(120, 120),
 			"Next period payment",
 		)
 
-		mensualityItem := widget.NewLabel(fmt.Sprintf("%s: %0.2f", lang.L("Next mensuality"), loans[id].Next_payment_amount))
+		mensualityItem := widget.NewLabel(fmt.Sprintf("%s: %0.2f", lang.L("Next mensuality"), loans[id.Row].Next_payment_amount))
 		mensualityItem.Alignment = fyne.TextAlignCenter
 		mensualityItem.SizeName = theme.SizeNameSubHeadingText
 
@@ -226,7 +267,7 @@ func createLoanTable(app fyne.App) *fyne.Container {
 
 		periodInterestItem.SizeName = theme.SizeNameCaptionText
 
-		periodInsuranceItem := widget.NewLabel(fmt.Sprintf("%s: %0.2f", lang.L("Insurance"), loans[id].Insurance_amount))
+		periodInsuranceItem := widget.NewLabel(fmt.Sprintf("%s: %0.2f", lang.L("Insurance"), loans[id.Row].Insurance_amount))
 		periodInsuranceItem.Alignment = fyne.TextAlignCenter
 
 		periodInsuranceItem.SizeName = theme.SizeNameCaptionText
@@ -259,12 +300,12 @@ func createLoanTable(app fyne.App) *fyne.Container {
 
 		// =======================================================================================
 		// Bottom left box
-		totalToRefund := (loans[id].Next_payment_amount - loans[id].Insurance_amount) * float64(loans[id].Nb_payments_total)
-		paidInterest := totalToRefund - loans[id].Total_amount
+		totalToRefund := (loans[id.Row].Next_payment_amount - loans[id.Row].Insurance_amount) * float64(loans[id.Row].Nb_payments_total)
+		paidInterest := totalToRefund - loans[id.Row].Total_amount
 
 		totalPaymentGraph := helper.DrawDoughnut(
 			[]string{lang.L("Capital"), lang.L("Interests")},
-			[]float64{loans[id].Total_amount, paidInterest},
+			[]float64{loans[id.Row].Total_amount, paidInterest},
 			fyne.NewSize(120, 120),
 			"Next period payment",
 		)
@@ -273,7 +314,7 @@ func createLoanTable(app fyne.App) *fyne.Container {
 		totalToRefundItem.Alignment = fyne.TextAlignCenter
 		totalToRefundItem.SizeName = theme.SizeNameSubHeadingText
 
-		totalCapitalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Capital"), helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[id].Total_amount))))
+		totalCapitalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Capital"), helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[id.Row].Total_amount))))
 		totalCapitalItem.Alignment = fyne.TextAlignCenter
 		totalCapitalItem.SizeName = theme.SizeNameCaptionText
 
@@ -319,7 +360,7 @@ func createLoanTable(app fyne.App) *fyne.Container {
 				remainingCapitalProgressItem.Value*100, lang.L("Of the capital"),
 			)
 		}
-		remainingCapitalProgressItem.SetValue(1 - remainingCapital/loans[id].Total_amount)
+		remainingCapitalProgressItem.SetValue(1 - remainingCapital/loans[id.Row].Total_amount)
 
 		bottomRightBox := container.NewBorder(
 			widget.NewSeparator(),
@@ -339,16 +380,16 @@ func createLoanTable(app fyne.App) *fyne.Container {
 
 		currentPaymentGraph := helper.DrawDoughnut(
 			[]string{lang.L("Capital"), lang.L("Interests")},
-			[]float64{loans[id].Total_amount - remainingCapital, sumPeriodInterest},
+			[]float64{loans[id.Row].Total_amount - remainingCapital, sumPeriodInterest},
 			fyne.NewSize(120, 120),
 			"Current period payment",
 		)
 
-		totalRefundedItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total refunded"), helper.ValueSpacer(fmt.Sprintf("%0.2f", float64(loans[id].Nb_payments_done)*(loans[id].Next_payment_amount-loans[id].Insurance_amount)))))
+		totalRefundedItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total refunded"), helper.ValueSpacer(fmt.Sprintf("%0.2f", float64(loans[id.Row].Nb_payments_done)*(loans[id.Row].Next_payment_amount-loans[id.Row].Insurance_amount)))))
 		totalRefundedItem.Alignment = fyne.TextAlignCenter
 		totalRefundedItem.SizeName = theme.SizeNameSubHeadingText
 
-		capitalRefundedItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Capital"), helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[id].Total_amount-remainingCapital))))
+		capitalRefundedItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Capital"), helper.ValueSpacer(fmt.Sprintf("%0.2f", loans[id.Row].Total_amount-remainingCapital))))
 		capitalRefundedItem.Alignment = fyne.TextAlignCenter
 		capitalRefundedItem.SizeName = theme.SizeNameCaptionText
 
@@ -395,7 +436,7 @@ func createLoanTable(app fyne.App) *fyne.Container {
 		w.Show()
 	}
 
-	return container.NewBorder(container.NewVBox(headerContainer, widget.NewSeparator()), nil, nil, nil, loanTable)
+	return loanTable
 }
 
 // ToDo: modify the function to return an error and display it if sth went wrong in the backend
