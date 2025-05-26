@@ -141,7 +141,7 @@ func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 	var reachedDataEnd = false
 	var threshold = 5 // Ask more data from the backend if we only have less than "threshold" txs left to display
 
-	txList := newCustomTable(
+	txTable := newCustomTable(
 
 		// We set the width of the columns, ie the max between the language name header size and actual value
 		// For example, the max between "Value" and "-123456123.00", or "Montant" and "-123456123.00" in french
@@ -229,8 +229,8 @@ func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 	)
 
 	// Add header to the table
-	txList.ShowHeaderRow = true
-	txList.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
+	txTable.ShowHeaderRow = true
+	txTable.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
 
 		label := o.(*widget.Label)
 
@@ -252,16 +252,16 @@ func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 		}
 	}
 
-	txList.OnSelected = func(id widget.TableCellID) {
+	txTable.OnSelected = func(id widget.TableCellID) {
 
 		// Dirty "workaround" for the customTable Resize issue
-		txList.Resize(txList.Size())
+		txTable.Resize(txTable.Size())
 
 		// Update the cell when selected by modifying content according to its "type" (icon, date, value, type, details, delete)
 		switch id.Col {
 		case pinnedColumn:
 			txs[id.Row].Pinned = !txs[id.Row].Pinned
-			txList.RefreshItem(widget.TableCellID{Row: id.Row, Col: pinnedColumn})
+			txTable.RefreshItem(widget.TableCellID{Row: id.Row, Col: pinnedColumn})
 			updateTransaction(txs[id.Row], app)
 
 		case dateColumn, valueColumn, typeColumn:
@@ -281,7 +281,7 @@ func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 				}
 
 				txs[id.Row].Original_wording = detailsItem.Text // replaced by the user input
-				txList.RefreshItem(widget.TableCellID{Row: id.Row, Col: detailsColumn})
+				txTable.RefreshItem(widget.TableCellID{Row: id.Row, Col: detailsColumn})
 				updateTransaction(txs[id.Row], app)
 			}, win)
 
@@ -296,7 +296,7 @@ func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 
 				deleteTransaction(txs[id.Row], app)
 				txs = slices.Delete(txs, id.Row, id.Row+1) // delete the selected row only
-				txList.Refresh()
+				txTable.Refresh()
 			}, win)
 			cnf.SetDismissText(lang.L("Cancel"))
 			cnf.SetConfirmText(lang.L("Delete"))
@@ -309,13 +309,13 @@ func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 		go func() {
 			time.Sleep(unselectTime)
 			fyne.Do(func() {
-				txList.Unselect(id)
+				txTable.Unselect(id)
 			})
 		}()
 
 	}
 
-	return txList
+	return txTable
 }
 
 // ToDo: modify the function to return an error and display it if sth went wrong in the backend
