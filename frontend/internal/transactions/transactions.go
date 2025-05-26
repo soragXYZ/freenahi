@@ -303,7 +303,7 @@ func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 			cnf.Show()
 
 		default:
-			helper.Logger.Fatal().Msg("Too much column in the transaction grid")
+			helper.Logger.Fatal().Msg("Too much column in the transaction grid on selected")
 		}
 
 		go func() {

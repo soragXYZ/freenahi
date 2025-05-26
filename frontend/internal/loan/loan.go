@@ -130,7 +130,7 @@ func createLoanTable(app fyne.App) *customTable {
 			case durationColumn:
 				item.SetText(fmt.Sprintf("%d", loans[id.Row].Duration))
 			default:
-				helper.Logger.Fatal().Msg("Too much column in the grid")
+				helper.Logger.Fatal().Msg("Too much column in the account grid")
 			}
 		},
 	)

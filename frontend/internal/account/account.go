@@ -107,47 +107,20 @@ func createAccountTable(app fyne.App) *widget.Table {
 	testNumberLabelSize := widget.NewLabel("550e8400-e29b-41d4-a716-446655440000").MinSize().Width
 
 	// Fill bank accounts. The first row is a special item only used for the table header (no real data)
-	bankAccounts := []BankAccount{{
-		Iban: "columnHeader",
-	}}
+	bankAccounts := []BankAccount{}
 	bankAccounts = append(bankAccounts, GetBankAccounts(app, "")...)
 
-	accountList := widget.NewTable(
+	accountTable := widget.NewTable(
 		func() (int, int) {
 			return len(bankAccounts), numberOfColumn
 		},
 		func() fyne.CanvasObject {
-			return container.NewHBox(widget.NewLabel("template"))
+			return container.NewHBox(widget.NewLabel("Template"))
 		},
 		func(id widget.TableCellID, o fyne.CanvasObject) {
 
 			// Clean the cell from the previous value
 			o.(*fyne.Container).RemoveAll()
-
-			// If we are on the first row, we set special values and we will pin this row to create a header with it
-			if id.Row == 0 {
-				switch id.Col {
-				case accountNameColumn:
-					helper.AddHAligned(o, accountNameLabel)
-				case valueColumn:
-					helper.AddHAligned(o, valueLabel)
-				case currencyColumn:
-					helper.AddHAligned(o, currencyLabel)
-				case lastUpdateColumn:
-					helper.AddHAligned(o, lastUpdateLabel)
-				case typeColumn:
-					helper.AddHAligned(o, typeLabel)
-				case usageColumn:
-					helper.AddHAligned(o, usageLabel)
-				case IBANColumn:
-					helper.AddHAligned(o, IBANLabel)
-				case accountNumberColumn:
-					helper.AddHAligned(o, numberLabel)
-				default:
-					helper.Logger.Fatal().Msg("Too much column in the grid")
-				}
-				return
-			}
 
 			// Update the cell by adding content according to its "type" (IBAN, accountName, value, currency, lastUpdate, type, usage, number)
 			switch id.Col {
@@ -196,64 +169,84 @@ func createAccountTable(app fyne.App) *widget.Table {
 				helper.AddHAligned(o, widget.NewLabel(bankAccounts[id.Row].Number))
 
 			default:
-				helper.Logger.Fatal().Msg("Too much column in the grid")
+				helper.Logger.Fatal().Msg("Too much column in the account grid")
 			}
 		},
 	)
 
-	accountList.OnSelected = func(id widget.TableCellID) {
+	// Add header to the table
+	accountTable.ShowHeaderRow = true
+	accountTable.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
 
-		// Do nothing if the user selected the column header
-		if id.Row == 0 {
-			return
+		label := o.(*widget.Label)
+
+		switch id.Col {
+		case accountNameColumn:
+			label.SetText(lang.L("Account name"))
+		case valueColumn:
+			label.SetText(lang.L("Value"))
+		case currencyColumn:
+			label.SetText(lang.L("Currency"))
+		case lastUpdateColumn:
+			label.SetText(lang.L("Last update"))
+		case typeColumn:
+			label.SetText(lang.L("Type"))
+		case usageColumn:
+			label.SetText(lang.L("Usage"))
+		case IBANColumn:
+			label.SetText(lang.L("IBAN"))
+		case accountNumberColumn:
+			label.SetText(lang.L("Account number"))
+		default:
+			helper.Logger.Fatal().Msg("Too much column in the grid for account header")
 		}
+	}
 
+	accountTable.OnSelected = func(id widget.TableCellID) {
 		go func() {
 			time.Sleep(unselectTime)
 			fyne.Do(func() {
-				accountList.Unselect(id)
+				accountTable.Unselect(id)
 			})
 		}()
 	}
 
 	// We set the width of the columns, ie the max between the language name header size and actual value
 	// For example, the max between "Value" and "-123456123.00", or "Montant" and "-123456123.00" in french
-	accountList.SetColumnWidth(accountNameColumn, float32(math.Max(
+	accountTable.SetColumnWidth(accountNameColumn, float32(math.Max(
 		float64(testAccountNameLabelSize),
 		float64(accountNameLabel.MinSize().Width))),
 	)
-	accountList.SetColumnWidth(valueColumn, float32(math.Max(
+	accountTable.SetColumnWidth(valueColumn, float32(math.Max(
 		float64(testValueLabelSize),
 		float64(valueLabel.MinSize().Width))),
 	)
-	accountList.SetColumnWidth(currencyColumn, float32(math.Max(
+	accountTable.SetColumnWidth(currencyColumn, float32(math.Max(
 		float64(testCurrencyLabelSize),
 		float64(currencyLabel.MinSize().Width))),
 	)
-	accountList.SetColumnWidth(lastUpdateColumn, float32(math.Max(
+	accountTable.SetColumnWidth(lastUpdateColumn, float32(math.Max(
 		float64(testLastUpdateLabelSize),
 		float64(lastUpdateLabel.MinSize().Width))),
 	)
-	accountList.SetColumnWidth(typeColumn, float32(math.Max(
+	accountTable.SetColumnWidth(typeColumn, float32(math.Max(
 		float64(testTypeLabelSize),
 		float64(typeLabel.MinSize().Width))),
 	)
-	accountList.SetColumnWidth(usageColumn, float32(math.Max(
+	accountTable.SetColumnWidth(usageColumn, float32(math.Max(
 		float64(testUsageLabelSize),
 		float64(usageLabel.MinSize().Width))),
 	)
-	accountList.SetColumnWidth(IBANColumn, float32(math.Max(
+	accountTable.SetColumnWidth(IBANColumn, float32(math.Max(
 		float64(testIBANLabelSize),
 		float64(IBANLabel.MinSize().Width))),
 	)
-	accountList.SetColumnWidth(accountNumberColumn, float32(math.Max(
+	accountTable.SetColumnWidth(accountNumberColumn, float32(math.Max(
 		float64(testNumberLabelSize),
 		float64(numberLabel.MinSize().Width))),
 	)
 
-	accountList.StickyRowCount = 1 // Basically, we are setting a table header because the first row contains special data
-
-	return accountList
+	return accountTable
 }
 
 // Add spacing to IBAN to make it more easily readable
