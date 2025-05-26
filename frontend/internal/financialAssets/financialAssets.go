@@ -14,6 +14,47 @@ import (
 	"freenahiFront/internal/helper"
 )
 
+const (
+	accountNameColumn int = iota
+	amountColumn
+	repartitionColumn
+	numberOfColumn
+)
+
+// A standard table, but which has resizabled column width
+type customTable struct {
+	widget.Table
+}
+
+func newCustomTable(length func() (rows int, cols int), create func() fyne.CanvasObject, update func(widget.TableCellID, fyne.CanvasObject)) *customTable {
+	table := &customTable{}
+	table.ExtendBaseWidget(table)
+
+	table.Length = length
+	table.CreateCell = create
+	table.UpdateCell = update
+
+	return table
+}
+
+// Function called when the table is resized: auto adjust the column width
+func (t *customTable) Resize(size fyne.Size) {
+
+	// Note that sometimes this function is not called even if it should
+	// For example, when you quickly reduce the window size
+	// Thus, the table width is not correctly auto adjusted,
+	// the table is too big a scroller appears
+	// No workaround ATM
+
+	_, columns := t.Length()
+	for i := range columns {
+		// Make columns equally spaced
+		t.Table.SetColumnWidth(i, t.Table.Size().Width/float32(columns)-3)
+	}
+
+	t.Table.Resize(size)
+}
+
 // Create the Financial asset tab view
 func NewFinancialAssetsScreen(app fyne.App, win fyne.Window) *container.AppTabs {
 
@@ -39,25 +80,6 @@ func NewFinancialAssetsScreen(app fyne.App, win fyne.Window) *container.AppTabs 
 
 func NewBankAccountsScreen(app fyne.App) *fyne.Container {
 
-	accountNameHeaderLabel := widget.NewLabel(lang.L("Account name"))
-	accountNameHeaderLabel.Alignment = fyne.TextAlignCenter
-	accountNameHeaderLabel.TextStyle.Bold = true
-
-	valueHeaderLabel := widget.NewLabel(lang.L("Value"))
-	valueHeaderLabel.Alignment = fyne.TextAlignCenter
-	valueHeaderLabel.TextStyle.Bold = true
-
-	repartitionHeaderLabel := widget.NewLabel(lang.L("Repartition"))
-	repartitionHeaderLabel.Alignment = fyne.TextAlignCenter
-	repartitionHeaderLabel.TextStyle.Bold = true
-
-	headerContainer := container.NewGridWithColumns(
-		3,
-		accountNameHeaderLabel,
-		valueHeaderLabel,
-		repartitionHeaderLabel,
-	)
-
 	// Fill accounts: backend call
 	accounts := account.GetBankAccounts(app, "checking")
 	total := 0.0
@@ -66,34 +88,66 @@ func NewBankAccountsScreen(app fyne.App) *fyne.Container {
 		total += float64(account.Balance)
 	}
 
-	tableData := widget.NewList(
-		func() int {
-			return len(accounts)
+	bankingAccountTable := newCustomTable(
+		func() (int, int) {
+			return len(accounts), numberOfColumn
 		},
 		func() fyne.CanvasObject {
-			item1 := widget.NewLabel("Template")
-			item1.Alignment = fyne.TextAlignCenter
-
-			item2 := widget.NewLabel("Template")
-			item2.Alignment = fyne.TextAlignCenter
-
-			item3 := widget.NewLabel("Template")
-			item3.Alignment = fyne.TextAlignCenter
-			return container.NewGridWithColumns(3, container.NewHScroll(item1), item2, item3)
+			label1 := widget.NewLabel("Template")
+			label1.Alignment = fyne.TextAlignCenter
+			label2 := widget.NewLabel("Template")
+			label2.Alignment = fyne.TextAlignCenter
+			return container.NewStack(
+				container.NewHScroll(widget.NewLabel("Template")),
+				label1,
+				label2,
+			)
 		},
-		func(i widget.ListItemID, o fyne.CanvasObject) {
+		func(id widget.TableCellID, o fyne.CanvasObject) {
 
-			accountNameItem := o.(*fyne.Container).Objects[0].(*container.Scroll).Content.(*widget.Label)
+			accountNameItem := o.(*fyne.Container).Objects[0].(*container.Scroll)
 			amountItem := o.(*fyne.Container).Objects[1].(*widget.Label)
 			repartitionItem := o.(*fyne.Container).Objects[2].(*widget.Label)
 
-			accountNameItem.SetText(accounts[i].Original_name)
-			amountItem.SetText(helper.ValueSpacer(fmt.Sprintf("%0.2f", accounts[i].Balance)))
-			repartitionItem.SetText(fmt.Sprintf("%0.2f %%", float64(accounts[i].Balance)/total*100))
+			switch id.Col {
+
+			case accountNameColumn:
+				accountNameItem.Show()
+				amountItem.Hide()
+				repartitionItem.Hide()
+				accountNameItem.Content.(*widget.Label).SetText(accounts[id.Row].Original_name)
+
+			case amountColumn:
+				accountNameItem.Hide()
+				amountItem.Show()
+				repartitionItem.Hide()
+				amountItem.SetText(helper.ValueSpacer(fmt.Sprintf("%0.2f", accounts[id.Row].Balance)))
+
+			case repartitionColumn:
+				accountNameItem.Hide()
+				amountItem.Hide()
+				repartitionItem.Show()
+				repartitionItem.SetText(fmt.Sprintf("%0.2f %%", float64(accounts[id.Row].Balance)/total*100))
+			}
 		},
 	)
 
-	table := container.NewBorder(container.NewVBox(headerContainer), nil, nil, nil, tableData)
+	bankingAccountTable.ShowHeaderRow = true
+	bankingAccountTable.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
+
+		l := o.(*widget.Label)
+
+		switch id.Col {
+		case accountNameColumn:
+			l.SetText(lang.L("Account name"))
+		case amountColumn:
+			l.SetText(lang.L("Value"))
+		case repartitionColumn:
+			l.SetText(lang.L("Repartition"))
+		default:
+			helper.Logger.Fatal().Msg("Too much column in the bank account assets grid for header")
+		}
+	}
 
 	totalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
 	totalItem.Alignment = fyne.TextAlignCenter
@@ -101,5 +155,5 @@ func NewBankAccountsScreen(app fyne.App) *fyne.Container {
 
 	totalContainer := container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer())
 
-	return container.NewBorder(nil, nil, nil, totalContainer, table)
+	return container.NewBorder(nil, nil, nil, totalContainer, bankingAccountTable)
 }
