@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 
 	"fyne.io/fyne/v2"
@@ -35,11 +36,22 @@ type Investment struct {
 	Last_update  string  `json:"last_update"`
 }
 
-const (
+const ( // for savings and bank account
 	nameColumn int = iota
 	valueColumn
 	repartitionColumn
-	numberOfColumn
+	numberOfColumns
+)
+
+const ( // SF = stocks and funds
+	SFnameColumn int = iota
+	SFquantityColumn
+	SFunitCostColumn
+	SFcurrentPriceColumn
+	SFvalueColumn
+	SFrepartitionColumn
+	SFprofitColumn
+	SFnumberOfColumns
 )
 
 // A standard table, but which has resizabled column width
@@ -114,7 +126,7 @@ func NewScreen(app fyne.App, accountType string) *fyne.Container {
 
 	bankingAccountTable := newCustomTable(
 		func() (int, int) {
-			return len(accounts), numberOfColumn
+			return len(accounts), numberOfColumns
 		},
 		func() fyne.CanvasObject {
 			scrollerLabel := widget.NewLabel("Template")
@@ -196,14 +208,62 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 		total += float64(invest.Valuation)
 	}
 
-	assetTable := newCustomTable(
+	// These values are used later to set column width sizes, which are the max between the header and an actual value
+	assetNameHeader := widget.NewLabel(lang.L("Name"))
+	assetNameHeader.TextStyle.Bold = true
+	assetNameHeaderSize := assetNameHeader.MinSize().Width
+	testAssetNameLabelSize := widget.NewLabel("ISH WLD SWP PEA EU").MinSize().Width
+
+	quantityHeader := widget.NewLabel(lang.L("Quantity"))
+	quantityHeader.TextStyle.Bold = true
+	quantityHeaderSize := quantityHeader.MinSize().Width
+	testQuantityLabelSize := widget.NewLabel("10 000 000").MinSize().Width
+
+	unitCostHeader := widget.NewLabel(lang.L("Unit cost"))
+	unitCostHeader.TextStyle.Bold = true
+	unitCostHeaderSize := unitCostHeader.MinSize().Width
+	testUnitCostLabelSize := widget.NewLabel("10 000 000").MinSize().Width
+
+	currentPriceHeader := widget.NewLabel(lang.L("Current price"))
+	currentPriceHeader.TextStyle.Bold = true
+	currentPriceHeaderSize := currentPriceHeader.MinSize().Width
+	testCurrentPriceLabelSize := widget.NewLabel("10 000 000").MinSize().Width
+
+	valueHeader := widget.NewLabel(lang.L("Value"))
+	valueHeader.TextStyle.Bold = true
+	valueHeaderSize := valueHeader.MinSize().Width
+	testValueLabelSize := widget.NewLabel("10 000 000").MinSize().Width
+
+	repartitionHeader := widget.NewLabel(lang.L("Repartition"))
+	repartitionHeader.TextStyle.Bold = true
+	repartitionHeaderSize := repartitionHeader.MinSize().Width
+	testRepartitionLabelSize := widget.NewLabel("100 %").MinSize().Width
+
+	profitHeader := widget.NewLabel(lang.L("Profit"))
+	profitHeader.TextStyle.Bold = true
+	profitHeaderSize := profitHeader.MinSize().Width
+	testProfitLabel := widget.NewLabel("10 000 000")
+	testProfitLabel.SizeName = theme.SizeNameCaptionText
+	testProfitLabelSize := testProfitLabel.MinSize().Width
+
+	assetTable := widget.NewTable(
 		func() (int, int) {
-			return len(invests), numberOfColumn
+			return len(invests), SFnumberOfColumns
 		},
 		func() fyne.CanvasObject {
 			scrollerLabel := widget.NewLabel("Template")
 			scrollerLabel.Alignment = fyne.TextAlignCenter
 			assetNameItem := container.NewHScroll(scrollerLabel)
+			assetNameItem.SetMinSize(fyne.NewSize(float32(math.Max(float64(testAssetNameLabelSize), float64(assetNameHeaderSize))), assetNameItem.MinSize().Height))
+
+			quantityItem := widget.NewLabel("Template")
+			quantityItem.Alignment = fyne.TextAlignCenter
+
+			unitCostItem := widget.NewLabel("Template")
+			unitCostItem.Alignment = fyne.TextAlignCenter
+
+			currentPriceItem := widget.NewLabel("Template")
+			currentPriceItem.Alignment = fyne.TextAlignCenter
 
 			valueItem := widget.NewLabel("Template")
 			valueItem.Alignment = fyne.TextAlignCenter
@@ -211,48 +271,121 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 			repartitionItem := widget.NewLabel("Template")
 			repartitionItem.Alignment = fyne.TextAlignCenter
 
-			return container.NewStack(assetNameItem, valueItem, repartitionItem)
+			profitTotalLabel := widget.NewLabel("Template")
+			profitTotalLabel.Alignment = fyne.TextAlignCenter
+			profitTotalLabel.SizeName = theme.SizeNameCaptionText
+			profitRelativeLabel := widget.NewLabel("Template")
+			profitRelativeLabel.Alignment = fyne.TextAlignCenter
+			profitRelativeLabel.SizeName = theme.SizeNameCaptionText
+			profitItem := container.NewVBox(profitTotalLabel, profitRelativeLabel)
+
+			return container.NewStack(
+				container.NewCenter(assetNameItem),
+				container.NewCenter(quantityItem),
+				container.NewCenter(unitCostItem),
+				container.NewCenter(currentPriceItem),
+				container.NewCenter(valueItem),
+				container.NewCenter(repartitionItem),
+				profitItem,
+			)
 		},
 		func(id widget.TableCellID, o fyne.CanvasObject) {
 
-			assetNameItem := o.(*fyne.Container).Objects[0].(*container.Scroll)
-			valueItem := o.(*fyne.Container).Objects[1].(*widget.Label)
-			repartitionItem := o.(*fyne.Container).Objects[2].(*widget.Label)
+			assetNameItem := o.(*fyne.Container).Objects[0].(*fyne.Container).Objects[0].(*container.Scroll)
+			quantityItem := o.(*fyne.Container).Objects[1].(*fyne.Container).Objects[0].(*widget.Label)
+			unitCostItem := o.(*fyne.Container).Objects[2].(*fyne.Container).Objects[0].(*widget.Label)
+			currentPriceItem := o.(*fyne.Container).Objects[3].(*fyne.Container).Objects[0].(*widget.Label)
+			valueItem := o.(*fyne.Container).Objects[4].(*fyne.Container).Objects[0].(*widget.Label)
+			repartitionItem := o.(*fyne.Container).Objects[5].(*fyne.Container).Objects[0].(*widget.Label)
+			profitItem := o.(*fyne.Container).Objects[6].(*fyne.Container)
 
 			assetNameItem.Hide()
+			quantityItem.Hide()
+			unitCostItem.Hide()
+			currentPriceItem.Hide()
 			valueItem.Hide()
 			repartitionItem.Hide()
+			profitItem.Hide()
 
 			switch id.Col {
-			case nameColumn:
+			case SFnameColumn:
 				assetNameItem.Show()
 				assetNameItem.Content.(*widget.Label).SetText(invests[id.Row].Label)
 
-			case valueColumn:
+			case SFquantityColumn:
+				quantityItem.Show()
+				quantityItem.SetText(fmt.Sprintf("%.2f", invests[id.Row].Quantity))
+
+			case SFunitCostColumn:
+				unitCostItem.Show()
+				unitCostItem.SetText(helper.ValueSpacer(fmt.Sprintf("%.2f", invests[id.Row].Unit_price)))
+
+			case SFcurrentPriceColumn:
+				currentPriceItem.Show()
+				currentPriceItem.SetText(helper.ValueSpacer(fmt.Sprintf("%.2f", invests[id.Row].Unit_value)))
+
+			case SFvalueColumn:
 				valueItem.Show()
 				valueItem.SetText(helper.ValueSpacer(fmt.Sprintf("%0.2f", invests[id.Row].Valuation)))
 
-			case repartitionColumn:
+			case SFrepartitionColumn:
 				repartitionItem.Show()
 				repartitionItem.SetText(fmt.Sprintf("%0.2f %%", float64(invests[id.Row].Valuation)/total*100))
+
+			case SFprofitColumn:
+				profitItem.Show()
+
+				totalProfit := profitItem.Objects[0].(*widget.Label)
+				relativeProfit := profitItem.Objects[1].(*widget.Label)
+				if invests[id.Row].Diff > 0 {
+					totalProfit.Importance = widget.SuccessImportance
+					relativeProfit.Importance = widget.SuccessImportance
+				} else if invests[id.Row].Diff < 0 {
+					totalProfit.Importance = widget.DangerImportance
+					relativeProfit.Importance = widget.DangerImportance
+				} else {
+					totalProfit.Importance = widget.MediumImportance
+					relativeProfit.Importance = widget.MediumImportance
+				}
+				totalProfit.SetText(fmt.Sprintf("%.2f", invests[id.Row].Diff))
+				relativeProfit.SetText(fmt.Sprintf("%.2f %%", invests[id.Row].Diff_percent*100))
 			}
 		},
 	)
 
+	// We set the width of the columns, ie the max between the language name header size and actual value
+	// For example, the max between string "Value" and "-123456123.00", or string "Montant" and "-123456123.00" in french
+	assetTable.SetColumnWidth(SFnameColumn, float32(math.Max(float64(testAssetNameLabelSize), float64(assetNameHeaderSize))))
+	assetTable.SetColumnWidth(SFquantityColumn, float32(math.Max(float64(testQuantityLabelSize), float64(quantityHeaderSize))))
+	assetTable.SetColumnWidth(SFunitCostColumn, float32(math.Max(float64(testUnitCostLabelSize), float64(unitCostHeaderSize))))
+	assetTable.SetColumnWidth(SFcurrentPriceColumn, float32(math.Max(float64(testCurrentPriceLabelSize), float64(currentPriceHeaderSize))))
+	assetTable.SetColumnWidth(SFvalueColumn, float32(math.Max(float64(testValueLabelSize), float64(valueHeaderSize))))
+	assetTable.SetColumnWidth(SFrepartitionColumn, float32(math.Max(float64(testRepartitionLabelSize), float64(repartitionHeaderSize))))
+	assetTable.SetColumnWidth(SFprofitColumn, float32(math.Max(float64(testProfitLabelSize), float64(profitHeaderSize))))
+
+	// Add header to the table
 	assetTable.ShowHeaderRow = true
 	assetTable.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
 
 		l := o.(*widget.Label)
 
 		switch id.Col {
-		case nameColumn:
-			l.SetText(lang.L("Account name"))
-		case valueColumn:
+		case SFnameColumn:
+			l.SetText(lang.L("Name"))
+		case SFquantityColumn:
+			l.SetText(lang.L("Quantity"))
+		case SFunitCostColumn:
+			l.SetText(lang.L("Unit cost"))
+		case SFcurrentPriceColumn:
+			l.SetText(lang.L("Current price"))
+		case SFvalueColumn:
 			l.SetText(lang.L("Value"))
-		case repartitionColumn:
+		case SFrepartitionColumn:
 			l.SetText(lang.L("Repartition"))
+		case SFprofitColumn:
+			l.SetText(lang.L("Profit"))
 		default:
-			helper.Logger.Fatal().Msg("Too much column in the bank account assets grid for header")
+			helper.Logger.Fatal().Msg("Too much column in the stocks and funds assets grid for header")
 		}
 	}
 
