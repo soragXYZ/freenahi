@@ -15,7 +15,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/lang"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -115,58 +114,104 @@ func createAccountTable(app fyne.App) *widget.Table {
 			return len(bankAccounts), numberOfColumn
 		},
 		func() fyne.CanvasObject {
-			return container.NewHBox(widget.NewLabel("Template"))
+			scrollerLabel := widget.NewLabel("Template")
+			scrollerLabel.Alignment = fyne.TextAlignCenter
+			accountNameItem := container.NewHScroll(scrollerLabel)
+
+			valueItem := widget.NewLabel("Template")
+			valueItem.Alignment = fyne.TextAlignCenter
+			currencyItem := widget.NewLabel("Template")
+			currencyItem.Alignment = fyne.TextAlignCenter
+			lastUpdateItem := widget.NewLabel("Template")
+			lastUpdateItem.Alignment = fyne.TextAlignCenter
+			typeItem := widget.NewLabel("Template")
+			typeItem.Alignment = fyne.TextAlignCenter
+			usageItem := widget.NewLabel("Template")
+			usageItem.Alignment = fyne.TextAlignCenter
+			ibanItem := widget.NewLabel("Template")
+			ibanItem.Alignment = fyne.TextAlignCenter
+			accountNumberItem := widget.NewLabel("Template")
+			accountNumberItem.Alignment = fyne.TextAlignCenter
+
+			return container.NewStack(
+				accountNameItem,
+				valueItem,
+				currencyItem,
+				lastUpdateItem,
+				typeItem,
+				usageItem,
+				ibanItem,
+				accountNumberItem,
+			)
 		},
 		func(id widget.TableCellID, o fyne.CanvasObject) {
 
-			// Clean the cell from the previous value
-			o.(*fyne.Container).RemoveAll()
+			accountNameItem := o.(*fyne.Container).Objects[0].(*container.Scroll)
+			valueItem := o.(*fyne.Container).Objects[1].(*widget.Label)
+			currencyItem := o.(*fyne.Container).Objects[2].(*widget.Label)
+			lastUpdateItem := o.(*fyne.Container).Objects[3].(*widget.Label)
+			typeItem := o.(*fyne.Container).Objects[4].(*widget.Label)
+			usageItem := o.(*fyne.Container).Objects[5].(*widget.Label)
+			ibanItem := o.(*fyne.Container).Objects[6].(*widget.Label)
+			accountNumberItem := o.(*fyne.Container).Objects[7].(*widget.Label)
+
+			accountNameItem.Hide()
+			valueItem.Hide()
+			currencyItem.Hide()
+			lastUpdateItem.Hide()
+			typeItem.Hide()
+			usageItem.Hide()
+			ibanItem.Hide()
+			accountNumberItem.Hide()
 
 			// Update the cell by adding content according to its "type" (IBAN, accountName, value, currency, lastUpdate, type, usage, number)
 			switch id.Col {
 			case accountNameColumn:
-				scroller := container.NewHScroll(container.NewHBox(
-					layout.NewSpacer(),
-					widget.NewLabel(bankAccounts[id.Row].Original_name),
-					layout.NewSpacer(),
-				))
-				scroller.SetMinSize(fyne.NewSize(testAccountNameLabelSize, scroller.MinSize().Height))
-				helper.AddHAligned(o, scroller)
+				accountNameItem.Show()
+				accountNameItem.Content.(*widget.Label).SetText(bankAccounts[id.Row].Original_name)
 
 			case valueColumn:
 				value := fmt.Sprintf("%.2f", bankAccounts[id.Row].Balance)
-				valueText := widget.NewLabel(helper.ValueSpacer(value))
 
 				if bankAccounts[id.Row].Balance < 0 {
-					valueText.Importance = widget.WarningImportance
+					valueItem.Importance = widget.WarningImportance
+				} else {
+					valueItem.Importance = widget.MediumImportance
 				}
-
-				helper.AddHAligned(o, valueText)
+				valueItem.Show()
+				valueItem.SetText(helper.ValueSpacer(value))
 
 			case currencyColumn:
-				helper.AddHAligned(o, widget.NewLabel(bankAccounts[id.Row].Currency))
+				currencyItem.Show()
+				currencyItem.SetText(bankAccounts[id.Row].Currency)
 
 			case lastUpdateColumn:
 				parsedTxDate, err := time.Parse("2006-01-02 15:04:05", bankAccounts[id.Row].Last_update)
 				if err != nil {
 					helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", bankAccounts[id.Row].Last_update)
 				}
-				helper.AddHAligned(o, widget.NewLabel(parsedTxDate.Format("2006-01-02")))
+
+				lastUpdateItem.Show()
+				lastUpdateItem.SetText(parsedTxDate.Format("2006-01-02"))
 
 			case typeColumn:
 				// Each type is here: https://docs.powens.com/api-reference/products/data-aggregation/bank-account-types#accounttypename-values
-				helper.AddHAligned(o, widget.NewLabel(lang.L(bankAccounts[id.Row].Account_type)))
+				typeItem.Show()
+				typeItem.SetText(lang.L(bankAccounts[id.Row].Account_type))
 
 			case usageColumn:
 				if bankAccounts[id.Row].Usage != "" {
-					helper.AddHAligned(o, widget.NewLabel(lang.L(bankAccounts[id.Row].Usage)))
+					usageItem.Show()
+					usageItem.SetText(lang.L(bankAccounts[id.Row].Usage))
 				}
 
 			case IBANColumn:
-				helper.AddHAligned(o, widget.NewLabel(ibanSpacer(bankAccounts[id.Row].Iban)))
+				ibanItem.Show()
+				ibanItem.SetText(ibanSpacer(bankAccounts[id.Row].Iban))
 
 			case accountNumberColumn:
-				helper.AddHAligned(o, widget.NewLabel(bankAccounts[id.Row].Number))
+				accountNumberItem.Show()
+				accountNumberItem.SetText(bankAccounts[id.Row].Number)
 
 			default:
 				helper.Logger.Fatal().Msg("Too much column in the account grid")

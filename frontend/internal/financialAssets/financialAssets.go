@@ -16,7 +16,7 @@ import (
 
 const (
 	accountNameColumn int = iota
-	amountColumn
+	valueColumn
 	repartitionColumn
 	numberOfColumn
 )
@@ -93,39 +93,38 @@ func NewBankAccountsScreen(app fyne.App) *fyne.Container {
 			return len(accounts), numberOfColumn
 		},
 		func() fyne.CanvasObject {
-			label1 := widget.NewLabel("Template")
-			label1.Alignment = fyne.TextAlignCenter
-			label2 := widget.NewLabel("Template")
-			label2.Alignment = fyne.TextAlignCenter
-			return container.NewStack(
-				container.NewHScroll(widget.NewLabel("Template")),
-				label1,
-				label2,
-			)
+			valueItem := widget.NewLabel("Template")
+			valueItem.Alignment = fyne.TextAlignCenter
+
+			repartitionItem := widget.NewLabel("Template")
+			repartitionItem.Alignment = fyne.TextAlignCenter
+
+			scrollerLabel := widget.NewLabel("Template")
+			scrollerLabel.Alignment = fyne.TextAlignCenter
+			accountNameItem := container.NewHScroll(scrollerLabel)
+
+			return container.NewStack(accountNameItem, valueItem, repartitionItem)
 		},
 		func(id widget.TableCellID, o fyne.CanvasObject) {
 
 			accountNameItem := o.(*fyne.Container).Objects[0].(*container.Scroll)
-			amountItem := o.(*fyne.Container).Objects[1].(*widget.Label)
+			valueItem := o.(*fyne.Container).Objects[1].(*widget.Label)
 			repartitionItem := o.(*fyne.Container).Objects[2].(*widget.Label)
 
-			switch id.Col {
+			accountNameItem.Hide()
+			valueItem.Hide()
+			repartitionItem.Hide()
 
+			switch id.Col {
 			case accountNameColumn:
 				accountNameItem.Show()
-				amountItem.Hide()
-				repartitionItem.Hide()
 				accountNameItem.Content.(*widget.Label).SetText(accounts[id.Row].Original_name)
 
-			case amountColumn:
-				accountNameItem.Hide()
-				amountItem.Show()
-				repartitionItem.Hide()
-				amountItem.SetText(helper.ValueSpacer(fmt.Sprintf("%0.2f", accounts[id.Row].Balance)))
+			case valueColumn:
+				valueItem.Show()
+				valueItem.SetText(helper.ValueSpacer(fmt.Sprintf("%0.2f", accounts[id.Row].Balance)))
 
 			case repartitionColumn:
-				accountNameItem.Hide()
-				amountItem.Hide()
 				repartitionItem.Show()
 				repartitionItem.SetText(fmt.Sprintf("%0.2f %%", float64(accounts[id.Row].Balance)/total*100))
 			}
@@ -140,7 +139,7 @@ func NewBankAccountsScreen(app fyne.App) *fyne.Container {
 		switch id.Col {
 		case accountNameColumn:
 			l.SetText(lang.L("Account name"))
-		case amountColumn:
+		case valueColumn:
 			l.SetText(lang.L("Value"))
 		case repartitionColumn:
 			l.SetText(lang.L("Repartition"))

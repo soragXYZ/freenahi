@@ -81,12 +81,6 @@ func (t *customTable) Resize(size fyne.Size) {
 	// if the table is too big a scroller appears
 	// No workaround ATM
 
-	t.Table.SetColumnWidth(pinnedColumn, t.pinnedColumnWidth)
-	t.Table.SetColumnWidth(dateColumn, t.dateColumnWidth)
-	t.Table.SetColumnWidth(valueColumn, t.valueColumnWidth)
-	t.Table.SetColumnWidth(typeColumn, t.typeColumnWidth)
-	t.Table.SetColumnWidth(deleteColumn, t.deleteColumnWidth)
-
 	// Get the remaining space for the column "details"
 	value := t.Table.Size().Width - 5*4 - t.pinnedColumnWidth - t.dateColumnWidth - t.valueColumnWidth - t.typeColumnWidth - t.deleteColumnWidth
 
@@ -156,58 +150,81 @@ func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 			return len(txs), numberOfColumn
 		},
 		func() fyne.CanvasObject {
-			return container.NewHBox(widget.NewLabel("Template"))
+			pinnedItem := widget.NewIcon(theme.RadioButtonIcon())
+
+			dateItem := widget.NewLabel("Template")
+			dateItem.Alignment = fyne.TextAlignCenter
+
+			valueItem := widget.NewLabel("Template")
+			valueItem.Alignment = fyne.TextAlignCenter
+
+			typeItem := widget.NewLabel("Template")
+			typeItem.Alignment = fyne.TextAlignCenter
+
+			scrollerLabel := widget.NewLabel("Template")
+			scrollerLabel.Alignment = fyne.TextAlignCenter
+			detailsItem := container.NewHScroll(scrollerLabel)
+
+			deleteItem := widget.NewIcon(theme.DeleteIcon())
+
+			return container.NewStack(pinnedItem, dateItem, valueItem, typeItem, detailsItem, deleteItem)
 		},
 		func(id widget.TableCellID, o fyne.CanvasObject) {
 
-			// Clean the cell from the previous value
-			o.(*fyne.Container).RemoveAll()
+			pinnedItem := o.(*fyne.Container).Objects[0].(*widget.Icon)
+			dateItem := o.(*fyne.Container).Objects[1].(*widget.Label)
+			valueItem := o.(*fyne.Container).Objects[2].(*widget.Label)
+			typeItem := o.(*fyne.Container).Objects[3].(*widget.Label)
+			detailsItem := o.(*fyne.Container).Objects[4].(*container.Scroll)
+			deleteItem := o.(*fyne.Container).Objects[5].(*widget.Icon)
+
+			pinnedItem.Hide()
+			dateItem.Hide()
+			valueItem.Hide()
+			typeItem.Hide()
+			detailsItem.Hide()
+			deleteItem.Hide()
 
 			// Update the cell by adding content according to its "type" (icon, date, value, type, details, delete)
 			switch id.Col {
 			case pinnedColumn:
 				if txs[id.Row].Pinned {
-					helper.AddHAligned(o, widget.NewIcon(theme.RadioButtonCheckedIcon()))
+					pinnedItem.Resource = theme.RadioButtonCheckedIcon()
 				} else {
-					helper.AddHAligned(o, widget.NewIcon(theme.RadioButtonIcon()))
+					pinnedItem.Resource = theme.RadioButtonIcon()
 				}
+				pinnedItem.Show()
+				pinnedItem.Refresh()
 
 			case dateColumn:
 				parsedTxDate, err := time.Parse("2006-01-02 15:04:05", txs[id.Row].Date)
 				if err != nil {
 					helper.Logger.Error().Err(err).Msgf("Cannot parse date %s", txs[id.Row].Date)
 				}
-				helper.AddHAligned(o, widget.NewLabel(parsedTxDate.Format("2006-01-02")))
+				dateItem.Show()
+				dateItem.SetText(parsedTxDate.Format("2006-01-02"))
 
 			case valueColumn:
-				value := fmt.Sprintf("%.2f", txs[id.Row].Value)
-				valueText := widget.NewLabel(helper.ValueSpacer(value))
-
 				if txs[id.Row].Value > 0 {
-					valueText.Importance = widget.SuccessImportance
+					valueItem.Importance = widget.SuccessImportance
+				} else {
+					valueItem.Importance = widget.MediumImportance
 				}
-
-				helper.AddHAligned(o, valueText)
+				valueItem.Show()
+				valueItem.SetText(helper.ValueSpacer(fmt.Sprintf("%.2f", txs[id.Row].Value)))
 
 			case typeColumn:
 				// ToDo: display an icon instead of a text ? More user friendly
 				// Each type is here: https://docs.powens.com/api-reference/products/data-aggregation/bank-transactions#transactiontype-values
-				helper.AddHAligned(o, widget.NewLabel(lang.L(txs[id.Row].Transaction_type)))
+				typeItem.Show()
+				typeItem.SetText(lang.L(txs[id.Row].Transaction_type))
 
 			case detailsColumn:
-				scroller := container.NewHScroll(widget.NewLabel(txs[id.Row].Original_wording))
-
-				// To Do: calculate the size of txTable (itself?), get a scroller with cell size if not large enough
-				// Otherwise, simple label and center text ?
-				// value := win.Canvas().Size().Width - 5*4 - float32(math.Max(float64(testIconSize), float64(pinnedLabel.MinSize().Width))) - float32(math.Max(float64(testDateLabelSize), float64(dateLabel.MinSize().Width))) - float32(math.Max(float64(testValueLabelSize), float64(valueLabel.MinSize().Width))) - float32(math.Max(float64(testTypeLabelSize), float64(typeLabel.MinSize().Width))) - float32(math.Max(float64(testIconSize), float64(deleteLabel.MinSize().Width)))
-				// zzz := float32(math.Max(math.Max(float64(testDetailsLabelSize), float64(detailsLabel.MinSize().Width)), float64(value)))
-				// scroller.SetMinSize(fyne.NewSize(zzz, scroller.MinSize().Height))
-
-				scroller.SetMinSize(fyne.NewSize(testDetailsLabelSize, scroller.MinSize().Height))
-				helper.AddHAligned(o, scroller)
+				detailsItem.Show()
+				detailsItem.Content.(*widget.Label).SetText(txs[id.Row].Original_wording)
 
 			case deleteColumn:
-				helper.AddHAligned(o, widget.NewIcon(theme.DeleteIcon()))
+				deleteItem.Show()
 
 			default:
 				helper.Logger.Fatal().Msg("Too much column in the transaction grid")
@@ -227,6 +244,13 @@ func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 			}
 		},
 	)
+
+	// Manually set column width
+	txTable.SetColumnWidth(pinnedColumn, txTable.pinnedColumnWidth)
+	txTable.SetColumnWidth(dateColumn, txTable.dateColumnWidth)
+	txTable.SetColumnWidth(valueColumn, txTable.valueColumnWidth)
+	txTable.SetColumnWidth(typeColumn, txTable.typeColumnWidth)
+	txTable.SetColumnWidth(deleteColumn, txTable.deleteColumnWidth)
 
 	// Add header to the table
 	txTable.ShowHeaderRow = true
