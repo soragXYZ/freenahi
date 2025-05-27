@@ -104,27 +104,28 @@ func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 // Create the transaction table
 func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 
-	pinnedLabel := widget.NewLabel(lang.L("Pinned"))
-	pinnedLabel.TextStyle.Bold = true
+	// These values are used later to set column width sizes, which are the max between the header and an actual value
+	pinnedHeaderLabel := widget.NewLabel(lang.L("Pinned"))
+	pinnedHeaderLabel.TextStyle.Bold = true
 
-	dateLabel := widget.NewLabel(lang.L("Date"))
-	dateLabel.TextStyle.Bold = true
+	dateHeaderLabel := widget.NewLabel(lang.L("Date"))
+	dateHeaderLabel.TextStyle.Bold = true
 	testDateLabelSize := widget.NewLabel("XXXX-YY-ZZ").MinSize().Width
 
-	valueLabel := widget.NewLabel(lang.L("Value"))
-	valueLabel.TextStyle.Bold = true
+	valueHeaderLabel := widget.NewLabel(lang.L("Value"))
+	valueHeaderLabel.TextStyle.Bold = true
 	testValueLabelSize := widget.NewLabel("-123456123.00").MinSize().Width
 
-	typeLabel := widget.NewLabel(lang.L("Type"))
-	typeLabel.TextStyle.Bold = true
+	typeHeaderLabel := widget.NewLabel(lang.L("Type"))
+	typeHeaderLabel.TextStyle.Bold = true
 	testTypeLabelSize := widget.NewLabel(lang.L("loan_repayment")).MinSize().Width
 
-	detailsLabel := widget.NewLabel(lang.L("Details"))
-	detailsLabel.TextStyle.Bold = true
+	detailsHeaderLabel := widget.NewLabel(lang.L("Details"))
+	detailsHeaderLabel.TextStyle.Bold = true
 	testDetailsLabelSize := widget.NewLabel("CB DEBIT IMMEDIAT UBER EATS").MinSize().Width
 
-	deleteLabel := widget.NewLabel(lang.L("Delete"))
-	deleteLabel.TextStyle.Bold = true
+	deleteHeaderLabel := widget.NewLabel(lang.L("Delete"))
+	deleteHeaderLabel.TextStyle.Bold = true
 
 	testIconSize := widget.NewIcon(theme.RadioButtonCheckedIcon()).MinSize().Width
 
@@ -139,12 +140,12 @@ func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 
 		// We set the width of the columns, ie the max between the language name header size and actual value
 		// For example, the max between "Value" and "-123456123.00", or "Montant" and "-123456123.00" in french
-		float32(math.Max(float64(testIconSize), float64(pinnedLabel.MinSize().Width))),
-		float32(math.Max(float64(testDateLabelSize), float64(dateLabel.MinSize().Width))),
-		float32(math.Max(float64(testValueLabelSize), float64(valueLabel.MinSize().Width))),
-		float32(math.Max(float64(testTypeLabelSize), float64(typeLabel.MinSize().Width))),
-		float32(math.Max(float64(testDetailsLabelSize), float64(detailsLabel.MinSize().Width))),
-		float32(math.Max(float64(testIconSize), float64(deleteLabel.MinSize().Width))),
+		float32(math.Max(float64(testIconSize), float64(pinnedHeaderLabel.MinSize().Width))),
+		float32(math.Max(float64(testDateLabelSize), float64(dateHeaderLabel.MinSize().Width))),
+		float32(math.Max(float64(testValueLabelSize), float64(valueHeaderLabel.MinSize().Width))),
+		float32(math.Max(float64(testTypeLabelSize), float64(typeHeaderLabel.MinSize().Width))),
+		float32(math.Max(float64(testDetailsLabelSize), float64(detailsHeaderLabel.MinSize().Width))),
+		float32(math.Max(float64(testIconSize), float64(deleteHeaderLabel.MinSize().Width))),
 
 		func() (int, int) {
 			return len(txs), numberOfColumn
