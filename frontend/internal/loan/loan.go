@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"time"
 
 	"freenahiFront/internal/helper"
@@ -19,13 +20,23 @@ import (
 )
 
 const (
-	subscriptionDateColumn int = iota
+	subscriptionDateColumn int = iota // Used to name the column
 	valueColumn
 	durationColumn
-	numberOfColumn
+	numberOfColumns
 
 	unselectTime = 200 * time.Millisecond
 )
+
+const (
+	sortOff = iota // Used to sort data when clicking on a table header
+	sortAsc
+	sortDesc
+	numberOfSorts
+)
+
+// Var holding the sort type for each
+var columnSort = [numberOfColumns]int{}
 
 type Loan struct {
 	Loan_account_id      int     `json:"-"` // absent in base data, field added for simplicity
@@ -101,7 +112,7 @@ func createLoanTable(app fyne.App) *customTable {
 
 	loanTable := newCustomTable(
 		func() (int, int) {
-			return len(loans), numberOfColumn
+			return len(loans), numberOfColumns
 		},
 		func() fyne.CanvasObject {
 			item := widget.NewLabel("Template")
@@ -135,23 +146,53 @@ func createLoanTable(app fyne.App) *customTable {
 		},
 	)
 
-	// Add header to the table
+	// Set column header, sortable when taped
 	loanTable.ShowHeaderRow = true
+	loanTable.CreateHeader = func() fyne.CanvasObject {
+		return widget.NewButton("000", func() {})
+	}
 	loanTable.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
-
-		l := o.(*widget.Label)
+		b := o.(*widget.Button)
 
 		switch id.Col {
-
 		case subscriptionDateColumn:
-			l.SetText(lang.L("Subscription date"))
+			b.SetText(lang.L("Subscription date"))
+			switch columnSort[subscriptionDateColumn] {
+			case sortAsc:
+				b.Icon = theme.MoveUpIcon()
+			case sortDesc:
+				b.Icon = theme.MoveDownIcon()
+			default:
+				b.Icon = nil
+			}
+
 		case valueColumn:
-			l.SetText(lang.L("Value"))
+			b.SetText(lang.L("Value"))
+			switch columnSort[valueColumn] {
+			case sortAsc:
+				b.Icon = theme.MoveUpIcon()
+			case sortDesc:
+				b.Icon = theme.MoveDownIcon()
+			default:
+				b.Icon = nil
+			}
+
 		case durationColumn:
-			l.SetText(lang.L("Duration"))
-		default:
-			helper.Logger.Fatal().Msg("Too much column in the grid for header")
+			b.SetText(lang.L("Duration"))
+			switch columnSort[durationColumn] {
+			case sortAsc:
+				b.Icon = theme.MoveUpIcon()
+			case sortDesc:
+				b.Icon = theme.MoveDownIcon()
+			default:
+				b.Icon = nil
+			}
 		}
+
+		b.OnTapped = func() {
+			applySort(id.Col, &loanTable.Table, loans)
+		}
+		b.Refresh()
 	}
 
 	// Display additional details when a loan is clicked on
@@ -468,4 +509,54 @@ func getLoans(app fyne.App) []Loan {
 	}
 
 	return loans
+}
+
+func applySort(col int, t *widget.Table, data []Loan) {
+
+	// Circle sorting: off => asc => desc => off => etc...
+	order := columnSort[col]
+	order++
+	if order == numberOfSorts {
+		order = sortOff
+	}
+
+	// Reset all and assign tapped sort
+	for i := range numberOfSorts {
+		columnSort[i] = sortOff
+	}
+
+	columnSort[col] = order
+
+	sort.Slice(data, func(i, j int) bool {
+		a := data[i]
+		b := data[j]
+
+		// re-sort with no sort selected
+		if order == sortOff {
+			return a.Loan_account_id < b.Loan_account_id
+		}
+		switch col {
+		case subscriptionDateColumn:
+			if order == sortAsc {
+				return a.Subscription_date < b.Subscription_date
+			}
+			return a.Subscription_date > b.Subscription_date
+
+		case valueColumn:
+			if order == sortAsc {
+				return a.Total_amount > b.Total_amount
+			}
+			return a.Total_amount < b.Total_amount
+
+		case durationColumn:
+			if order == sortDesc {
+				return a.Duration > b.Duration
+			}
+			return a.Duration < b.Duration
+
+		default:
+			return false
+		}
+	})
+	t.Refresh()
 }

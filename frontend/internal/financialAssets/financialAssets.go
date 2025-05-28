@@ -259,11 +259,11 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 			)
 
 			ibanLabel := widget.NewLabel("Template")
-			ibanLabel.Alignment = fyne.TextAlignCenter
 			ibanLabel.TextStyle.Italic = true
 			ibanLabel.SizeName = theme.SizeNameCaptionText
+			ibanLabel.Selectable = true
 
-			assetNameItem := container.NewVBox(scroller, ibanLabel)
+			assetNameItem := container.NewVBox(scroller, container.NewCenter(ibanLabel))
 
 			quantityItem := widget.NewLabel("Template")
 			quantityItem.Alignment = fyne.TextAlignCenter
@@ -321,7 +321,7 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 				assetNameItem.Show()
 				name := assetNameItem.Objects[0].(*fyne.Container).Objects[0].(*container.Scroll).Content.(*widget.Label)
 				name.SetText(invests[id.Row].Label)
-				isin := assetNameItem.Objects[0].(*fyne.Container).Objects[1].(*widget.Label)
+				isin := assetNameItem.Objects[0].(*fyne.Container).Objects[1].(*fyne.Container).Objects[0].(*widget.Label)
 				if invests[id.Row].Code_type == "ISIN" {
 					isin.Show()
 					isin.SetText(invests[id.Row].Code)
