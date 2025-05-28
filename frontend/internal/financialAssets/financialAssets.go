@@ -99,8 +99,8 @@ func NewFinancialAssetsScreen(app fyne.App, win fyne.Window) *container.AppTabs 
 
 	tabs := container.NewAppTabs(
 		container.NewTabItem(lang.L("General"), container.NewVBox(layout.NewSpacer(), wipItem, layout.NewSpacer())),
-		container.NewTabItem(lang.L("Bank accounts"), NewScreen(app, "checking")),
-		container.NewTabItem(lang.L("Savings books"), NewScreen(app, "savings")),
+		container.NewTabItem(lang.L("Bank accounts"), NewCheckingOrSavingsScreen(app, "checking")),
+		container.NewTabItem(lang.L("Savings books"), NewCheckingOrSavingsScreen(app, "savings")),
 		container.NewTabItem(lang.L("Stocks and funds"), NewStocksAndFundsScreen(app)),
 		container.NewTabItem(lang.L("Real estate"), container.NewVBox(layout.NewSpacer(), wipItem, layout.NewSpacer())),
 		container.NewTabItem(lang.L("Crypto"), container.NewVBox(layout.NewSpacer(), wipItem, layout.NewSpacer())),
@@ -110,15 +110,14 @@ func NewFinancialAssetsScreen(app fyne.App, win fyne.Window) *container.AppTabs 
 	return tabs
 }
 
-func NewScreen(app fyne.App, accountType string) *fyne.Container {
+func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Container {
 
 	if accountType != "checking" && accountType != "savings" {
 		helper.Logger.Fatal().Msgf("Wrong type '%s' used for GetBankAccounts. Must be checking or savings", accountType)
 	}
 
-	// Fill accounts: backend call
-	accounts := account.GetBankAccounts(app, accountType)
-	total := 0.0
+	accounts := account.GetBankAccounts(app, accountType) // Fill accounts: backend call
+	total := 0.0                                          // Used later to calculate the repartition of each individual asset
 
 	for _, account := range accounts {
 		total += float64(account.Balance)
@@ -253,8 +252,18 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 		func() fyne.CanvasObject {
 			scrollerLabel := widget.NewLabel("Template")
 			scrollerLabel.Alignment = fyne.TextAlignCenter
-			assetNameItem := container.NewHScroll(scrollerLabel)
-			assetNameItem.SetMinSize(fyne.NewSize(float32(math.Max(float64(testAssetNameLabelSize), float64(assetNameHeaderSize))), assetNameItem.MinSize().Height))
+			scroller := container.NewHScroll(scrollerLabel)
+			scroller.SetMinSize(fyne.NewSize(float32(
+				math.Max(float64(testAssetNameLabelSize), float64(assetNameHeaderSize))),
+				scroller.MinSize().Height),
+			)
+
+			ibanLabel := widget.NewLabel("Template")
+			ibanLabel.Alignment = fyne.TextAlignCenter
+			ibanLabel.TextStyle.Italic = true
+			ibanLabel.SizeName = theme.SizeNameCaptionText
+
+			assetNameItem := container.NewVBox(scroller, ibanLabel)
 
 			quantityItem := widget.NewLabel("Template")
 			quantityItem.Alignment = fyne.TextAlignCenter
@@ -291,7 +300,7 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 		},
 		func(id widget.TableCellID, o fyne.CanvasObject) {
 
-			assetNameItem := o.(*fyne.Container).Objects[0].(*fyne.Container).Objects[0].(*container.Scroll)
+			assetNameItem := o.(*fyne.Container).Objects[0].(*fyne.Container)
 			quantityItem := o.(*fyne.Container).Objects[1].(*fyne.Container).Objects[0].(*widget.Label)
 			unitCostItem := o.(*fyne.Container).Objects[2].(*fyne.Container).Objects[0].(*widget.Label)
 			currentPriceItem := o.(*fyne.Container).Objects[3].(*fyne.Container).Objects[0].(*widget.Label)
@@ -310,7 +319,15 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 			switch id.Col {
 			case SFnameColumn:
 				assetNameItem.Show()
-				assetNameItem.Content.(*widget.Label).SetText(invests[id.Row].Label)
+				name := assetNameItem.Objects[0].(*fyne.Container).Objects[0].(*container.Scroll).Content.(*widget.Label)
+				name.SetText(invests[id.Row].Label)
+				isin := assetNameItem.Objects[0].(*fyne.Container).Objects[1].(*widget.Label)
+				if invests[id.Row].Code_type == "ISIN" {
+					isin.Show()
+					isin.SetText(invests[id.Row].Code)
+				} else {
+					isin.Hide()
+				}
 
 			case SFquantityColumn:
 				quantityItem.Show()
