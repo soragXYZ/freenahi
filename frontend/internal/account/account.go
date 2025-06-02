@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"sort"
 	"time"
 
 	"freenahiFront/internal/helper"
@@ -15,6 +16,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/lang"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -29,10 +31,20 @@ const (
 	usageColumn
 	IBANColumn
 	accountNumberColumn
-	numberOfColumn
+	numberOfColumns
 
 	unselectTime = 200 * time.Millisecond
 )
+
+const (
+	sortOff = iota // Used to sort data when clicking on a table header
+	sortAsc
+	sortDesc
+	numberOfSorts
+)
+
+// Var holding the sort type for each
+var columnSort = [numberOfColumns]int{}
 
 type BankAccount struct {
 	Number        string  `json:"number"`
@@ -71,47 +83,48 @@ func NewAccountScreen(app fyne.App) fyne.CanvasObject {
 }
 
 // Create the table of transaction
-func createAccountTable(app fyne.App) *widget.Table {
+func createAccountTable(app fyne.App) *fyne.Container {
 
-	accountNameLabel := widget.NewLabel(lang.L("Account name"))
-	accountNameLabel.TextStyle.Bold = true
+	accountNameHeaderLabel := widget.NewLabel(lang.L("Account name"))
+	accountNameHeaderLabel.TextStyle.Bold = true
 	testAccountNameLabelSize := widget.NewLabel("COMPTE COURANT NUMERO XXX").MinSize().Width
 
-	valueLabel := widget.NewLabel(lang.L("Value"))
-	valueLabel.TextStyle.Bold = true
+	valueHeaderLabel := widget.NewLabel(lang.L("Value"))
+	valueHeaderLabel.TextStyle.Bold = true
 	testValueLabelSize := widget.NewLabel("-123456123.00").MinSize().Width
 
-	currencyLabel := widget.NewLabel(lang.L("Currency"))
-	currencyLabel.TextStyle.Bold = true
+	currencyHeaderLabel := widget.NewLabel(lang.L("Currency"))
+	currencyHeaderLabel.TextStyle.Bold = true
 	testCurrencyLabelSize := widget.NewLabel("EUR").MinSize().Width
 
-	lastUpdateLabel := widget.NewLabel(lang.L("Last update"))
-	lastUpdateLabel.TextStyle.Bold = true
+	lastUpdateHeaderLabel := widget.NewLabel(lang.L("Last update"))
+	lastUpdateHeaderLabel.TextStyle.Bold = true
 	testLastUpdateLabelSize := widget.NewLabel("XXXX-YY-ZZ").MinSize().Width
 
-	typeLabel := widget.NewLabel(lang.L("Type"))
-	typeLabel.TextStyle.Bold = true
+	typeHeaderLabel := widget.NewLabel(lang.L("Type"))
+	typeHeaderLabel.TextStyle.Bold = true
 	testTypeLabelSize := widget.NewLabel(lang.L("capitalisation")).MinSize().Width
 
-	usageLabel := widget.NewLabel(lang.L("Usage"))
-	usageLabel.TextStyle.Bold = true
+	usageHeaderLabel := widget.NewLabel(lang.L("Usage"))
+	usageHeaderLabel.TextStyle.Bold = true
 	testUsageLabelSize := widget.NewLabel(lang.L("PRIV")).MinSize().Width
 
-	IBANLabel := widget.NewLabel(lang.L("IBAN"))
-	IBANLabel.TextStyle.Bold = true
+	IBANHeaderLabel := widget.NewLabel(lang.L("IBAN"))
+	IBANHeaderLabel.TextStyle.Bold = true
 	testIBANLabelSize := widget.NewLabel("FR76 3000 1007 9412 3456 7890 185").MinSize().Width
 
-	numberLabel := widget.NewLabel(lang.L("Account number"))
-	numberLabel.TextStyle.Bold = true
+	numberHeaderLabel := widget.NewLabel(lang.L("Account number"))
+	numberHeaderLabel.TextStyle.Bold = true
 	testNumberLabelSize := widget.NewLabel("550e8400-e29b-41d4-a716-446655440000").MinSize().Width
 
-	// Fill bank accounts. The first row is a special item only used for the table header (no real data)
-	bankAccounts := []BankAccount{}
-	bankAccounts = append(bankAccounts, GetBankAccounts(app, "")...)
+	testIconSize := widget.NewIcon(theme.RadioButtonCheckedIcon()).MinSize().Width
+
+	// Fill bank accounts. Backend call
+	bankAccounts := GetBankAccounts(app, "")
 
 	accountTable := widget.NewTable(
 		func() (int, int) {
-			return len(bankAccounts), numberOfColumn
+			return len(bankAccounts), numberOfColumns
 		},
 		func() fyne.CanvasObject {
 			scrollerLabel := widget.NewLabel("Template")
@@ -219,32 +232,57 @@ func createAccountTable(app fyne.App) *widget.Table {
 		},
 	)
 
-	// Add header to the table
+	// Set column header, sortable when taped https://fynelabs.com/2023/10/05/user-data-sorting-with-a-fyne-table-widget/
 	accountTable.ShowHeaderRow = true
-	accountTable.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
+	accountTable.CreateHeader = func() fyne.CanvasObject {
+		return widget.NewButton("000", func() {})
+	}
 
-		label := o.(*widget.Label)
+	accountTable.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
+		b := o.(*widget.Button)
 
 		switch id.Col {
 		case accountNameColumn:
-			label.SetText(lang.L("Account name"))
+			b.SetText(lang.L("Account name"))
+			helper.SetColumnHeaderIcon(columnSort[accountNameColumn], b, sortAsc, sortDesc)
+
 		case valueColumn:
-			label.SetText(lang.L("Value"))
+			b.SetText(lang.L("Value"))
+			helper.SetColumnHeaderIcon(columnSort[valueColumn], b, sortAsc, sortDesc)
+
 		case currencyColumn:
-			label.SetText(lang.L("Currency"))
+			b.SetText(lang.L("Currency"))
+			helper.SetColumnHeaderIcon(columnSort[currencyColumn], b, sortAsc, sortDesc)
+
 		case lastUpdateColumn:
-			label.SetText(lang.L("Last update"))
+			b.SetText(lang.L("Last update"))
+			helper.SetColumnHeaderIcon(columnSort[lastUpdateColumn], b, sortAsc, sortDesc)
+
 		case typeColumn:
-			label.SetText(lang.L("Type"))
+			b.SetText(lang.L("Type"))
+			helper.SetColumnHeaderIcon(columnSort[typeColumn], b, sortAsc, sortDesc)
+
 		case usageColumn:
-			label.SetText(lang.L("Usage"))
+			b.SetText(lang.L("Usage"))
+			helper.SetColumnHeaderIcon(columnSort[usageColumn], b, sortAsc, sortDesc)
+
 		case IBANColumn:
-			label.SetText(lang.L("IBAN"))
+			b.SetText(lang.L("IBAN"))
+			helper.SetColumnHeaderIcon(columnSort[IBANColumn], b, sortAsc, sortDesc)
+
 		case accountNumberColumn:
-			label.SetText(lang.L("Account number"))
+			b.SetText(lang.L("Account number"))
+			helper.SetColumnHeaderIcon(columnSort[accountNumberColumn], b, sortAsc, sortDesc)
+
 		default:
 			helper.Logger.Fatal().Msg("Too much column in the grid for account header")
 		}
+
+		b.OnTapped = func() {
+			applySort(id.Col, accountTable, bankAccounts)
+		}
+
+		b.Refresh()
 	}
 
 	accountTable.OnSelected = func(id widget.TableCellID) {
@@ -260,38 +298,51 @@ func createAccountTable(app fyne.App) *widget.Table {
 	// For example, the max between "Value" and "-123456123.00", or "Montant" and "-123456123.00" in french
 	accountTable.SetColumnWidth(accountNameColumn, float32(math.Max(
 		float64(testAccountNameLabelSize),
-		float64(accountNameLabel.MinSize().Width))),
+		float64(accountNameHeaderLabel.MinSize().Width+testIconSize))),
 	)
 	accountTable.SetColumnWidth(valueColumn, float32(math.Max(
 		float64(testValueLabelSize),
-		float64(valueLabel.MinSize().Width))),
+		float64(valueHeaderLabel.MinSize().Width+testIconSize))),
 	)
 	accountTable.SetColumnWidth(currencyColumn, float32(math.Max(
 		float64(testCurrencyLabelSize),
-		float64(currencyLabel.MinSize().Width))),
+		float64(currencyHeaderLabel.MinSize().Width+testIconSize))),
 	)
 	accountTable.SetColumnWidth(lastUpdateColumn, float32(math.Max(
 		float64(testLastUpdateLabelSize),
-		float64(lastUpdateLabel.MinSize().Width))),
+		float64(lastUpdateHeaderLabel.MinSize().Width+testIconSize))),
 	)
 	accountTable.SetColumnWidth(typeColumn, float32(math.Max(
 		float64(testTypeLabelSize),
-		float64(typeLabel.MinSize().Width))),
+		float64(typeHeaderLabel.MinSize().Width+testIconSize))),
 	)
 	accountTable.SetColumnWidth(usageColumn, float32(math.Max(
 		float64(testUsageLabelSize),
-		float64(usageLabel.MinSize().Width))),
+		float64(usageHeaderLabel.MinSize().Width+testIconSize))),
 	)
 	accountTable.SetColumnWidth(IBANColumn, float32(math.Max(
 		float64(testIBANLabelSize),
-		float64(IBANLabel.MinSize().Width))),
+		float64(IBANHeaderLabel.MinSize().Width+testIconSize))),
 	)
 	accountTable.SetColumnWidth(accountNumberColumn, float32(math.Max(
 		float64(testNumberLabelSize),
-		float64(numberLabel.MinSize().Width))),
+		float64(numberHeaderLabel.MinSize().Width+testIconSize))),
 	)
 
-	return accountTable
+	// Reload button reloads data by querying the backend
+	reloadButton := widget.NewButton("", func() {
+		bankAccounts = GetBankAccounts(app, "")
+		accountTable.Refresh()
+
+		// Reset header sorting if any
+		columnSort[0] = numberOfSorts
+		applySort(0, accountTable, bankAccounts)
+	})
+
+	reloadButton.Icon = theme.ViewRefreshIcon()
+
+	return container.NewBorder(nil, container.NewBorder(nil, nil, nil, reloadButton, nil), nil, nil, accountTable)
+
 }
 
 // Add spacing to IBAN to make it more easily readable
@@ -372,4 +423,85 @@ func getWebviewManageConnexionLink(app fyne.App) *url.URL {
 	}
 
 	return webviewURL
+}
+
+// Sort table data
+func applySort(col int, t *widget.Table, data []BankAccount) {
+
+	// Circle sorting: off => asc => desc => off => etc...
+	order := columnSort[col]
+	order++
+	if order >= numberOfSorts {
+		order = sortOff
+	}
+
+	// Reset all and assign tapped sort
+	for i := range numberOfColumns {
+		columnSort[i] = sortOff
+	}
+
+	columnSort[col] = order
+
+	sort.Slice(data, func(i, j int) bool {
+		a := data[i]
+		b := data[j]
+
+		// re-sort with no sort selected
+		if order == sortOff {
+			return a.Original_name < b.Original_name
+		}
+
+		switch col {
+		case accountNameColumn:
+			if order == sortAsc {
+				return a.Original_name < b.Original_name
+			}
+			return a.Original_name > b.Original_name
+
+		case valueColumn:
+			if order == sortAsc {
+				return a.Balance > b.Balance
+			}
+			return a.Balance < b.Balance
+
+		case currencyColumn:
+			if order == sortDesc {
+				return a.Currency > b.Currency
+			}
+			return a.Currency < b.Currency
+
+		case lastUpdateColumn:
+			if order == sortDesc {
+				return a.Last_update > b.Last_update
+			}
+			return a.Last_update < b.Last_update
+
+		case typeColumn:
+			if order == sortDesc {
+				return a.Account_type > b.Account_type
+			}
+			return a.Account_type < b.Account_type
+
+		case usageColumn:
+			if order == sortDesc {
+				return a.Usage > b.Usage
+			}
+			return a.Usage < b.Usage
+
+		case IBANColumn:
+			if order == sortDesc {
+				return a.Iban > b.Iban
+			}
+			return a.Iban < b.Iban
+
+		case accountNumberColumn:
+			if order == sortDesc {
+				return a.Number > b.Number
+			}
+			return a.Number < b.Number
+		default:
+			return false
+		}
+	})
+	t.Refresh()
 }

@@ -108,6 +108,7 @@ func NewLoanScreen(app fyne.App, win fyne.Window) *fyne.Container {
 // Create the table of of loan
 func createLoanTable(app fyne.App) *fyne.Container {
 
+	// Fill loans. Backend call
 	loans := getLoans(app)
 
 	loanTable := newCustomTable(
@@ -146,7 +147,7 @@ func createLoanTable(app fyne.App) *fyne.Container {
 		},
 	)
 
-	// Set column header, sortable when taped
+	// Set column header, sortable when taped https://fynelabs.com/2023/10/05/user-data-sorting-with-a-fyne-table-widget/
 	loanTable.ShowHeaderRow = true
 	loanTable.CreateHeader = func() fyne.CanvasObject {
 		return widget.NewButton("000", func() {})
@@ -157,36 +158,15 @@ func createLoanTable(app fyne.App) *fyne.Container {
 		switch id.Col {
 		case subscriptionDateColumn:
 			b.SetText(lang.L("Subscription date"))
-			switch columnSort[subscriptionDateColumn] {
-			case sortAsc:
-				b.Icon = theme.MoveUpIcon()
-			case sortDesc:
-				b.Icon = theme.MoveDownIcon()
-			default:
-				b.Icon = nil
-			}
+			helper.SetColumnHeaderIcon(columnSort[subscriptionDateColumn], b, sortAsc, sortDesc)
 
 		case valueColumn:
 			b.SetText(lang.L("Value"))
-			switch columnSort[valueColumn] {
-			case sortAsc:
-				b.Icon = theme.MoveUpIcon()
-			case sortDesc:
-				b.Icon = theme.MoveDownIcon()
-			default:
-				b.Icon = nil
-			}
+			helper.SetColumnHeaderIcon(columnSort[valueColumn], b, sortAsc, sortDesc)
 
 		case durationColumn:
 			b.SetText(lang.L("Duration"))
-			switch columnSort[durationColumn] {
-			case sortAsc:
-				b.Icon = theme.MoveUpIcon()
-			case sortDesc:
-				b.Icon = theme.MoveDownIcon()
-			default:
-				b.Icon = nil
-			}
+			helper.SetColumnHeaderIcon(columnSort[durationColumn], b, sortAsc, sortDesc)
 		}
 
 		b.OnTapped = func() {
@@ -523,6 +503,7 @@ func getLoans(app fyne.App) []Loan {
 	return loans
 }
 
+// Sort table data
 func applySort(col int, t *widget.Table, data []Loan) {
 
 	// Circle sorting: off => asc => desc => off => etc...
@@ -533,7 +514,7 @@ func applySort(col int, t *widget.Table, data []Loan) {
 	}
 
 	// Reset all and assign tapped sort
-	for i := range numberOfSorts {
+	for i := range numberOfColumns {
 		columnSort[i] = sortOff
 	}
 
@@ -547,6 +528,7 @@ func applySort(col int, t *widget.Table, data []Loan) {
 		if order == sortOff {
 			return a.Loan_account_id < b.Loan_account_id
 		}
+
 		switch col {
 		case subscriptionDateColumn:
 			if order == sortAsc {

@@ -13,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 	"github.com/go-analyze/charts"
 	"github.com/rs/zerolog"
 )
@@ -219,4 +220,19 @@ func DrawDoughnut(xData []string, yData []float64, minSize fyne.Size, name strin
 	image.FillMode = canvas.ImageFillContain
 
 	return image
+}
+
+// Simple helper function which sets the column header icon
+// Used to refactor code
+func SetColumnHeaderIcon(value int, b *widget.Button, asc, desc int) {
+	switch value {
+	case asc:
+		b.Icon = theme.MoveUpIcon()
+
+	case desc:
+		b.Icon = theme.MoveDownIcon()
+
+	default:
+		b.Icon = nil
+	}
 }
