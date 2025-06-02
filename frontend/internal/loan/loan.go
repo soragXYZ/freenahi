@@ -98,7 +98,7 @@ func (t *customTable) Resize(size fyne.Size) {
 }
 
 // Create the main view for loans
-func NewLoanScreen(app fyne.App, win fyne.Window) *customTable {
+func NewLoanScreen(app fyne.App, win fyne.Window) *fyne.Container {
 
 	loanTable := createLoanTable(app)
 
@@ -106,7 +106,7 @@ func NewLoanScreen(app fyne.App, win fyne.Window) *customTable {
 }
 
 // Create the table of of loan
-func createLoanTable(app fyne.App) *customTable {
+func createLoanTable(app fyne.App) *fyne.Container {
 
 	loans := getLoans(app)
 
@@ -477,7 +477,19 @@ func createLoanTable(app fyne.App) *customTable {
 		w.Show()
 	}
 
-	return loanTable
+	// Reload button reloads data by querying the backend
+	reloadButton := widget.NewButton("", func() {
+		loans = getLoans(app)
+		loanTable.Refresh()
+
+		// Reset header sorting if any
+		columnSort[0] = numberOfSorts
+		applySort(0, &loanTable.Table, loans)
+	})
+
+	reloadButton.Icon = theme.ViewRefreshIcon()
+
+	return container.NewBorder(nil, container.NewBorder(nil, nil, nil, reloadButton, nil), nil, nil, loanTable)
 }
 
 // ToDo: modify the function to return an error and display it if sth went wrong in the backend
@@ -516,7 +528,7 @@ func applySort(col int, t *widget.Table, data []Loan) {
 	// Circle sorting: off => asc => desc => off => etc...
 	order := columnSort[col]
 	order++
-	if order == numberOfSorts {
+	if order >= numberOfSorts {
 		order = sortOff
 	}
 
