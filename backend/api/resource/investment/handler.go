@@ -11,7 +11,7 @@ func GetInvestments(w http.ResponseWriter, r *http.Request) {
 
 	var investments []Investment
 
-	var query string = "SELECT * FROM invest"
+	var query string = "SELECT * FROM invest ORDER BY valuation DESC"
 	rows, err := config.DB.Query(query)
 	if err != nil {
 		config.Logger.Error().Err(err).Msg(query)

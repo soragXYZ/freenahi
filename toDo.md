@@ -16,7 +16,7 @@
 * Frontend
 - Loans: deal with revolving credit
 - Add a tutorial to create the backend and Powens account
-- Tx, accounts and loans: add filter and reload options
+- Tx: add filter and reload options
 - Do not load everything as start up (Tabs mechanism), use tab on selected to fill the data ?
 - Add a possibility to export as PDF ?
 - Add tooltips ? https://github.com/dweymouth/fyne-tooltip

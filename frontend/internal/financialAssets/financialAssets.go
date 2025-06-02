@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"sort"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -53,6 +54,17 @@ const ( // SF = stocks and funds
 	SFprofitColumn
 	SFnumberOfColumns
 )
+
+const (
+	sortOff = iota // Used to sort data when clicking on a table header
+	sortAsc
+	sortDesc
+	numberOfSorts
+)
+
+// Var holding the sort type for each
+var columnSort = [numberOfColumns]int{}
+var SFColumnSort = [SFnumberOfColumns]int{}
 
 // A standard table, but which has resizabled column width
 type customTable struct {
@@ -166,22 +178,48 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 		},
 	)
 
+	// Set column header, sortable when taped https://fynelabs.com/2023/10/05/user-data-sorting-with-a-fyne-table-widget/
 	bankingAccountTable.ShowHeaderRow = true
+	bankingAccountTable.CreateHeader = func() fyne.CanvasObject {
+		return widget.NewButton("000", func() {})
+	}
 	bankingAccountTable.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
 
-		l := o.(*widget.Label)
+		b := o.(*widget.Button)
 
 		switch id.Col {
 		case nameColumn:
-			l.SetText(lang.L("Account name"))
+			b.SetText(lang.L("Account name"))
+			helper.SetColumnHeaderIcon(columnSort[nameColumn], b, sortAsc, sortDesc)
 		case valueColumn:
-			l.SetText(lang.L("Value"))
+			b.SetText(lang.L("Value"))
+			helper.SetColumnHeaderIcon(columnSort[valueColumn], b, sortAsc, sortDesc)
 		case repartitionColumn:
-			l.SetText(lang.L("Repartition"))
+			b.SetText(lang.L("Repartition"))
+			helper.SetColumnHeaderIcon(columnSort[repartitionColumn], b, sortAsc, sortDesc)
 		default:
 			helper.Logger.Fatal().Msg("Too much column in the bank account assets grid for header")
 		}
+
+		b.OnTapped = func() {
+			applySort(id.Col, &bankingAccountTable.Table, accounts)
+		}
+		b.Refresh()
 	}
+
+	// Reload button reloads data by querying the backend
+	reloadButton := widget.NewButton("", func() {
+		accounts = account.GetBankAccounts(app, accountType)
+		bankingAccountTable.Refresh()
+
+		// Reset header sorting if any
+		columnSort[0] = numberOfSorts
+		applySort(0, &bankingAccountTable.Table, accounts)
+	})
+
+	reloadButton.Icon = theme.ViewRefreshIcon()
+
+	bankingAccountItem := container.NewBorder(nil, container.NewBorder(nil, nil, nil, reloadButton, nil), nil, nil, bankingAccountTable)
 
 	totalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
 	totalItem.Alignment = fyne.TextAlignCenter
@@ -194,7 +232,7 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 		container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer()),
 	)
 
-	return container.NewBorder(nil, nil, nil, totalContainer, bankingAccountTable)
+	return container.NewBorder(nil, nil, nil, totalContainer, bankingAccountItem)
 }
 
 func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
@@ -208,9 +246,11 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 	}
 
 	// These values are used later to set column width sizes, which are the max between the header and an actual value
+	testIconSize := widget.NewIcon(theme.RadioButtonCheckedIcon()).MinSize().Width
+
 	assetNameHeader := widget.NewLabel(lang.L("Name"))
 	assetNameHeader.TextStyle.Bold = true
-	assetNameHeaderSize := assetNameHeader.MinSize().Width
+	assetNameHeaderSize := assetNameHeader.MinSize().Width + testIconSize
 	testAssetNameLabelSize := widget.NewLabel("ISH WLD SWP PEA EU").MinSize().Width
 
 	quantityHeader := widget.NewLabel(lang.L("Quantity"))
@@ -230,17 +270,17 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 
 	valueHeader := widget.NewLabel(lang.L("Value"))
 	valueHeader.TextStyle.Bold = true
-	valueHeaderSize := valueHeader.MinSize().Width
+	valueHeaderSize := valueHeader.MinSize().Width + testIconSize
 	testValueLabelSize := widget.NewLabel("10 000 000").MinSize().Width
 
 	repartitionHeader := widget.NewLabel(lang.L("Repartition"))
 	repartitionHeader.TextStyle.Bold = true
-	repartitionHeaderSize := repartitionHeader.MinSize().Width
+	repartitionHeaderSize := repartitionHeader.MinSize().Width + testIconSize
 	testRepartitionLabelSize := widget.NewLabel("100 %").MinSize().Width
 
 	profitHeader := widget.NewLabel(lang.L("Profit"))
 	profitHeader.TextStyle.Bold = true
-	profitHeaderSize := profitHeader.MinSize().Width
+	profitHeaderSize := profitHeader.MinSize().Width + testIconSize
 	testProfitLabel := widget.NewLabel("10 000 000")
 	testProfitLabel.SizeName = theme.SizeNameCaptionText
 	testProfitLabelSize := testProfitLabel.MinSize().Width
@@ -380,31 +420,65 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 	assetTable.SetColumnWidth(SFrepartitionColumn, float32(math.Max(float64(testRepartitionLabelSize), float64(repartitionHeaderSize))))
 	assetTable.SetColumnWidth(SFprofitColumn, float32(math.Max(float64(testProfitLabelSize), float64(profitHeaderSize))))
 
-	// Add header to the table
+	// Set column header, sortable when taped https://fynelabs.com/2023/10/05/user-data-sorting-with-a-fyne-table-widget/
 	assetTable.ShowHeaderRow = true
+	assetTable.CreateHeader = func() fyne.CanvasObject {
+		return widget.NewButton("000", func() {})
+	}
+
 	assetTable.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
 
-		l := o.(*widget.Label)
+		b := o.(*widget.Button)
 
 		switch id.Col {
 		case SFnameColumn:
-			l.SetText(lang.L("Name"))
+			b.SetText(lang.L("Name"))
+			helper.SetColumnHeaderIcon(SFColumnSort[SFnameColumn], b, sortAsc, sortDesc)
+
 		case SFquantityColumn:
-			l.SetText(lang.L("Quantity"))
+			b.SetText(lang.L("Quantity"))
+
 		case SFunitCostColumn:
-			l.SetText(lang.L("Unit cost"))
+			b.SetText(lang.L("Unit cost"))
+
 		case SFcurrentPriceColumn:
-			l.SetText(lang.L("Current price"))
+			b.SetText(lang.L("Current price"))
+
 		case SFvalueColumn:
-			l.SetText(lang.L("Value"))
+			b.SetText(lang.L("Value"))
+			helper.SetColumnHeaderIcon(SFColumnSort[SFvalueColumn], b, sortAsc, sortDesc)
+
 		case SFrepartitionColumn:
-			l.SetText(lang.L("Repartition"))
+			b.SetText(lang.L("Repartition"))
+			helper.SetColumnHeaderIcon(SFColumnSort[SFrepartitionColumn], b, sortAsc, sortDesc)
+
 		case SFprofitColumn:
-			l.SetText(lang.L("Profit"))
+			b.SetText(lang.L("Profit"))
+			helper.SetColumnHeaderIcon(SFColumnSort[SFprofitColumn], b, sortAsc, sortDesc)
+
 		default:
 			helper.Logger.Fatal().Msg("Too much column in the stocks and funds assets grid for header")
 		}
+
+		b.OnTapped = func() {
+			applySortSF(id.Col, assetTable, invests)
+		}
+		b.Refresh()
 	}
+
+	// Reload button reloads data by querying the backend
+	reloadButton := widget.NewButton("", func() {
+		invests = GetInvests(app)
+		assetTable.Refresh()
+
+		// Reset header sorting if any
+		SFColumnSort[0] = numberOfSorts
+		applySortSF(0, assetTable, invests)
+	})
+
+	reloadButton.Icon = theme.ViewRefreshIcon()
+
+	assetTableItem := container.NewBorder(nil, container.NewBorder(nil, nil, nil, reloadButton, nil), nil, nil, assetTable)
 
 	totalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
 	totalItem.Alignment = fyne.TextAlignCenter
@@ -417,7 +491,7 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 		container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer()),
 	)
 
-	return container.NewBorder(nil, nil, nil, totalContainer, assetTable)
+	return container.NewBorder(nil, nil, nil, totalContainer, assetTableItem)
 }
 
 // ToDo: modify the function to return an error and display it if sth went wrong in the backend
@@ -450,4 +524,102 @@ func GetInvests(app fyne.App) []Investment {
 	}
 
 	return invests
+}
+
+// Sort table data for banking and checking
+func applySort(col int, t *widget.Table, data []account.BankAccount) {
+
+	// Circle sorting: off => asc => desc => off => etc...
+	order := columnSort[col]
+	order++
+	if order >= numberOfSorts {
+		order = sortOff
+	}
+
+	// Reset all and assign tapped sort
+	for i := range numberOfColumns {
+		columnSort[i] = sortOff
+	}
+
+	columnSort[col] = order
+
+	sort.Slice(data, func(i, j int) bool {
+		a := data[i]
+		b := data[j]
+
+		// re-sort with no sort selected
+		if order == sortOff {
+			return a.Balance > b.Balance
+		}
+
+		switch col {
+		case nameColumn:
+			if order == sortAsc {
+				return a.Original_name < b.Original_name
+			}
+			return a.Original_name > b.Original_name
+
+		case valueColumn, repartitionColumn:
+			if order == sortAsc {
+				return a.Balance > b.Balance
+			}
+			return a.Balance < b.Balance
+
+		default:
+			return false
+		}
+	})
+	t.Refresh()
+}
+
+// Sort table data for stocks and funds
+func applySortSF(col int, t *widget.Table, data []Investment) {
+
+	// Circle sorting: off => asc => desc => off => etc...
+	order := SFColumnSort[col]
+	order++
+	if order >= numberOfSorts {
+		order = sortOff
+	}
+
+	// Reset all and assign tapped sort
+	for i := range SFnumberOfColumns {
+		SFColumnSort[i] = sortOff
+	}
+
+	SFColumnSort[col] = order
+
+	sort.Slice(data, func(i, j int) bool {
+		a := data[i]
+		b := data[j]
+
+		// re-sort with no sort selected
+		if order == sortOff {
+			return a.Valuation > b.Valuation
+		}
+
+		switch col {
+		case SFnameColumn:
+			if order == sortAsc {
+				return a.Label < b.Label
+			}
+			return a.Label > b.Label
+
+		case SFvalueColumn, SFrepartitionColumn:
+			if order == sortAsc {
+				return a.Valuation < b.Valuation
+			}
+			return a.Valuation > b.Valuation
+
+		case SFprofitColumn:
+			if order == sortAsc {
+				return a.Diff < b.Diff
+			}
+			return a.Diff > b.Diff
+
+		default:
+			return false
+		}
+	})
+	t.Refresh()
 }

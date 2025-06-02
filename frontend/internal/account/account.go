@@ -85,39 +85,48 @@ func NewAccountScreen(app fyne.App) fyne.CanvasObject {
 // Create the table of transaction
 func createAccountTable(app fyne.App) *fyne.Container {
 
-	accountNameHeaderLabel := widget.NewLabel(lang.L("Account name"))
-	accountNameHeaderLabel.TextStyle.Bold = true
+	// These values are used later to set column width sizes, which are the max between the header and an actual value
+	testIconSize := widget.NewIcon(theme.RadioButtonCheckedIcon()).MinSize().Width
+
+	accountNameHeader := widget.NewLabel(lang.L("Account name"))
+	accountNameHeader.TextStyle.Bold = true
+	accountNameHeaderSize := accountNameHeader.MinSize().Width + testIconSize
 	testAccountNameLabelSize := widget.NewLabel("COMPTE COURANT NUMERO XXX").MinSize().Width
 
-	valueHeaderLabel := widget.NewLabel(lang.L("Value"))
-	valueHeaderLabel.TextStyle.Bold = true
+	valueHeader := widget.NewLabel(lang.L("Value"))
+	valueHeader.TextStyle.Bold = true
+	valueHeaderSize := valueHeader.MinSize().Width + testIconSize
 	testValueLabelSize := widget.NewLabel("-123456123.00").MinSize().Width
 
-	currencyHeaderLabel := widget.NewLabel(lang.L("Currency"))
-	currencyHeaderLabel.TextStyle.Bold = true
+	currencyHeader := widget.NewLabel(lang.L("Currency"))
+	currencyHeader.TextStyle.Bold = true
+	currencyHeaderSize := currencyHeader.MinSize().Width + testIconSize
 	testCurrencyLabelSize := widget.NewLabel("EUR").MinSize().Width
 
-	lastUpdateHeaderLabel := widget.NewLabel(lang.L("Last update"))
-	lastUpdateHeaderLabel.TextStyle.Bold = true
+	lastUpdateHeader := widget.NewLabel(lang.L("Last update"))
+	lastUpdateHeader.TextStyle.Bold = true
+	lastUpdateHeaderSize := lastUpdateHeader.MinSize().Width + testIconSize
 	testLastUpdateLabelSize := widget.NewLabel("XXXX-YY-ZZ").MinSize().Width
 
-	typeHeaderLabel := widget.NewLabel(lang.L("Type"))
-	typeHeaderLabel.TextStyle.Bold = true
+	typeHeader := widget.NewLabel(lang.L("Type"))
+	typeHeader.TextStyle.Bold = true
+	typeHeaderSize := typeHeader.MinSize().Width + testIconSize
 	testTypeLabelSize := widget.NewLabel(lang.L("capitalisation")).MinSize().Width
 
-	usageHeaderLabel := widget.NewLabel(lang.L("Usage"))
-	usageHeaderLabel.TextStyle.Bold = true
+	usageHeader := widget.NewLabel(lang.L("Usage"))
+	usageHeader.TextStyle.Bold = true
+	usageHeaderSize := usageHeader.MinSize().Width + testIconSize
 	testUsageLabelSize := widget.NewLabel(lang.L("PRIV")).MinSize().Width
 
-	IBANHeaderLabel := widget.NewLabel(lang.L("IBAN"))
-	IBANHeaderLabel.TextStyle.Bold = true
+	IBANHeader := widget.NewLabel(lang.L("IBAN"))
+	IBANHeader.TextStyle.Bold = true
+	IBANHeaderSize := IBANHeader.MinSize().Width + testIconSize
 	testIBANLabelSize := widget.NewLabel("FR76 3000 1007 9412 3456 7890 185").MinSize().Width
 
-	numberHeaderLabel := widget.NewLabel(lang.L("Account number"))
-	numberHeaderLabel.TextStyle.Bold = true
+	numberHeader := widget.NewLabel(lang.L("Account number"))
+	numberHeader.TextStyle.Bold = true
+	numberHeaderSize := numberHeader.MinSize().Width + testIconSize
 	testNumberLabelSize := widget.NewLabel("550e8400-e29b-41d4-a716-446655440000").MinSize().Width
-
-	testIconSize := widget.NewIcon(theme.RadioButtonCheckedIcon()).MinSize().Width
 
 	// Fill bank accounts. Backend call
 	bankAccounts := GetBankAccounts(app, "")
@@ -296,38 +305,14 @@ func createAccountTable(app fyne.App) *fyne.Container {
 
 	// We set the width of the columns, ie the max between the language name header size and actual value
 	// For example, the max between "Value" and "-123456123.00", or "Montant" and "-123456123.00" in french
-	accountTable.SetColumnWidth(accountNameColumn, float32(math.Max(
-		float64(testAccountNameLabelSize),
-		float64(accountNameHeaderLabel.MinSize().Width+testIconSize))),
-	)
-	accountTable.SetColumnWidth(valueColumn, float32(math.Max(
-		float64(testValueLabelSize),
-		float64(valueHeaderLabel.MinSize().Width+testIconSize))),
-	)
-	accountTable.SetColumnWidth(currencyColumn, float32(math.Max(
-		float64(testCurrencyLabelSize),
-		float64(currencyHeaderLabel.MinSize().Width+testIconSize))),
-	)
-	accountTable.SetColumnWidth(lastUpdateColumn, float32(math.Max(
-		float64(testLastUpdateLabelSize),
-		float64(lastUpdateHeaderLabel.MinSize().Width+testIconSize))),
-	)
-	accountTable.SetColumnWidth(typeColumn, float32(math.Max(
-		float64(testTypeLabelSize),
-		float64(typeHeaderLabel.MinSize().Width+testIconSize))),
-	)
-	accountTable.SetColumnWidth(usageColumn, float32(math.Max(
-		float64(testUsageLabelSize),
-		float64(usageHeaderLabel.MinSize().Width+testIconSize))),
-	)
-	accountTable.SetColumnWidth(IBANColumn, float32(math.Max(
-		float64(testIBANLabelSize),
-		float64(IBANHeaderLabel.MinSize().Width+testIconSize))),
-	)
-	accountTable.SetColumnWidth(accountNumberColumn, float32(math.Max(
-		float64(testNumberLabelSize),
-		float64(numberHeaderLabel.MinSize().Width+testIconSize))),
-	)
+	accountTable.SetColumnWidth(accountNameColumn, float32(math.Max(float64(testAccountNameLabelSize), float64(accountNameHeaderSize))))
+	accountTable.SetColumnWidth(valueColumn, float32(math.Max(float64(testValueLabelSize), float64(valueHeaderSize))))
+	accountTable.SetColumnWidth(currencyColumn, float32(math.Max(float64(testCurrencyLabelSize), float64(currencyHeaderSize))))
+	accountTable.SetColumnWidth(lastUpdateColumn, float32(math.Max(float64(testLastUpdateLabelSize), float64(lastUpdateHeaderSize))))
+	accountTable.SetColumnWidth(typeColumn, float32(math.Max(float64(testTypeLabelSize), float64(typeHeaderSize))))
+	accountTable.SetColumnWidth(usageColumn, float32(math.Max(float64(testUsageLabelSize), float64(usageHeaderSize))))
+	accountTable.SetColumnWidth(IBANColumn, float32(math.Max(float64(testIBANLabelSize), float64(IBANHeaderSize))))
+	accountTable.SetColumnWidth(accountNumberColumn, float32(math.Max(float64(testNumberLabelSize), float64(numberHeaderSize))))
 
 	// Reload button reloads data by querying the backend
 	reloadButton := widget.NewButton("", func() {
