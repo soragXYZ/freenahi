@@ -8,7 +8,8 @@
 - Subrouting for endpoints ?
     https://codewithflash.com/advanced-routing-with-go-122
     https://dev.to/kengowada/go-routing-101-handling-and-grouping-routes-with-nethttp-4k0e
-- Add bank name account / create a new table ?
+- Need to modify history invest table => use bank account id and not invest id
+- Is model bankAccountWebhook usefull ?
 
 * Documentation
 - Complete it

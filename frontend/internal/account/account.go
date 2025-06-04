@@ -23,7 +23,8 @@ import (
 // Const which are used in order to increase code readability
 // These consts are the name of the columns and used later in a switch case
 const (
-	accountNameColumn int = iota
+	bankNameColumn int = iota
+	accountNameColumn
 	valueColumn
 	currencyColumn
 	lastUpdateColumn
@@ -47,14 +48,15 @@ const (
 var columnSort = [numberOfColumns]int{}
 
 type BankAccount struct {
-	Number        string  `json:"number"`
-	Original_name string  `json:"original_name"`
-	Balance       float32 `json:"balance"`
-	Last_update   string  `json:"last_update"`
-	Iban          string  `json:"iban"`
-	Currency      string  `json:"currency"`
-	Account_type  string  `json:"type"`
-	Usage         string  `json:"usage"`
+	Number             string  `json:"number"`
+	Bank_Original_name string  `json:"bank_original_name"`
+	Original_name      string  `json:"original_name"`
+	Balance            float32 `json:"balance"`
+	Last_update        string  `json:"last_update"`
+	Iban               string  `json:"iban"`
+	Currency           string  `json:"currency"`
+	Account_type       string  `json:"type"`
+	Usage              string  `json:"usage"`
 }
 
 // Create the transaction screen
@@ -87,6 +89,11 @@ func createAccountTable(app fyne.App) *fyne.Container {
 
 	// These values are used later to set column width sizes, which are the max between the header and an actual value
 	testIconSize := widget.NewIcon(theme.RadioButtonCheckedIcon()).MinSize().Width
+
+	bankNameHeader := widget.NewLabel(lang.L("Name"))
+	bankNameHeader.TextStyle.Bold = true
+	bankNameHeaderSize := bankNameHeader.MinSize().Width + testIconSize
+	testBankNameLabelSize := widget.NewLabel("BoursoBank").MinSize().Width
 
 	accountNameHeader := widget.NewLabel(lang.L("Account name"))
 	accountNameHeader.TextStyle.Bold = true
@@ -136,9 +143,13 @@ func createAccountTable(app fyne.App) *fyne.Container {
 			return len(bankAccounts), numberOfColumns
 		},
 		func() fyne.CanvasObject {
-			scrollerLabel := widget.NewLabel("Template")
-			scrollerLabel.Alignment = fyne.TextAlignCenter
-			accountNameItem := container.NewHScroll(scrollerLabel)
+			scrollerBankNameLabel := widget.NewLabel("Template")
+			scrollerBankNameLabel.Alignment = fyne.TextAlignCenter
+			bankNameItem := container.NewHScroll(scrollerBankNameLabel)
+
+			scrollerAccountNameLabel := widget.NewLabel("Template")
+			scrollerAccountNameLabel.Alignment = fyne.TextAlignCenter
+			accountNameItem := container.NewHScroll(scrollerAccountNameLabel)
 
 			valueItem := widget.NewLabel("Template")
 			valueItem.Alignment = fyne.TextAlignCenter
@@ -156,6 +167,7 @@ func createAccountTable(app fyne.App) *fyne.Container {
 			accountNumberItem.Alignment = fyne.TextAlignCenter
 
 			return container.NewStack(
+				bankNameItem,
 				accountNameItem,
 				valueItem,
 				currencyItem,
@@ -168,15 +180,18 @@ func createAccountTable(app fyne.App) *fyne.Container {
 		},
 		func(id widget.TableCellID, o fyne.CanvasObject) {
 
-			accountNameItem := o.(*fyne.Container).Objects[0].(*container.Scroll)
-			valueItem := o.(*fyne.Container).Objects[1].(*widget.Label)
-			currencyItem := o.(*fyne.Container).Objects[2].(*widget.Label)
-			lastUpdateItem := o.(*fyne.Container).Objects[3].(*widget.Label)
-			typeItem := o.(*fyne.Container).Objects[4].(*widget.Label)
-			usageItem := o.(*fyne.Container).Objects[5].(*widget.Label)
-			ibanItem := o.(*fyne.Container).Objects[6].(*widget.Label)
-			accountNumberItem := o.(*fyne.Container).Objects[7].(*widget.Label)
+			// We parse the previously created items (order is important and defined in the create function and iota)
+			bankNameItem := o.(*fyne.Container).Objects[bankNameColumn].(*container.Scroll)
+			accountNameItem := o.(*fyne.Container).Objects[accountNameColumn].(*container.Scroll)
+			valueItem := o.(*fyne.Container).Objects[valueColumn].(*widget.Label)
+			currencyItem := o.(*fyne.Container).Objects[currencyColumn].(*widget.Label)
+			lastUpdateItem := o.(*fyne.Container).Objects[lastUpdateColumn].(*widget.Label)
+			typeItem := o.(*fyne.Container).Objects[typeColumn].(*widget.Label)
+			usageItem := o.(*fyne.Container).Objects[usageColumn].(*widget.Label)
+			ibanItem := o.(*fyne.Container).Objects[IBANColumn].(*widget.Label)
+			accountNumberItem := o.(*fyne.Container).Objects[accountNumberColumn].(*widget.Label)
 
+			bankNameItem.Hide()
 			accountNameItem.Hide()
 			valueItem.Hide()
 			currencyItem.Hide()
@@ -188,6 +203,10 @@ func createAccountTable(app fyne.App) *fyne.Container {
 
 			// Update the cell by adding content according to its "type" (IBAN, accountName, value, currency, lastUpdate, type, usage, number)
 			switch id.Col {
+			case bankNameColumn:
+				accountNameItem.Show()
+				accountNameItem.Content.(*widget.Label).SetText(bankAccounts[id.Row].Bank_Original_name)
+
 			case accountNameColumn:
 				accountNameItem.Show()
 				accountNameItem.Content.(*widget.Label).SetText(bankAccounts[id.Row].Original_name)
@@ -251,6 +270,10 @@ func createAccountTable(app fyne.App) *fyne.Container {
 		b := o.(*widget.Button)
 
 		switch id.Col {
+		case bankNameColumn:
+			b.SetText(lang.L("Name"))
+			helper.SetColumnHeaderIcon(columnSort[bankNameColumn], b, sortAsc, sortDesc)
+
 		case accountNameColumn:
 			b.SetText(lang.L("Account name"))
 			helper.SetColumnHeaderIcon(columnSort[accountNameColumn], b, sortAsc, sortDesc)
@@ -305,6 +328,7 @@ func createAccountTable(app fyne.App) *fyne.Container {
 
 	// We set the width of the columns, ie the max between the language name header size and actual value
 	// For example, the max between "Value" and "-123456123.00", or "Montant" and "-123456123.00" in french
+	accountTable.SetColumnWidth(bankNameColumn, float32(math.Max(float64(testBankNameLabelSize), float64(bankNameHeaderSize))))
 	accountTable.SetColumnWidth(accountNameColumn, float32(math.Max(float64(testAccountNameLabelSize), float64(accountNameHeaderSize))))
 	accountTable.SetColumnWidth(valueColumn, float32(math.Max(float64(testValueLabelSize), float64(valueHeaderSize))))
 	accountTable.SetColumnWidth(currencyColumn, float32(math.Max(float64(testCurrencyLabelSize), float64(currencyHeaderSize))))
@@ -433,10 +457,16 @@ func applySort(col int, t *widget.Table, data []BankAccount) {
 
 		// re-sort with no sort selected
 		if order == sortOff {
-			return a.Original_name < b.Original_name
+			return a.Bank_Original_name < b.Bank_Original_name
 		}
 
 		switch col {
+		case bankNameColumn:
+			if order == sortAsc {
+				return a.Bank_Original_name < b.Bank_Original_name
+			}
+			return a.Bank_Original_name > b.Bank_Original_name
+
 		case accountNameColumn:
 			if order == sortAsc {
 				return a.Original_name < b.Original_name

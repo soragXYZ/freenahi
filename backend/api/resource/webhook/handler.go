@@ -30,6 +30,7 @@ func ConnectionSynced(w http.ResponseWriter, r *http.Request) {
 	for _, account := range conn.Connection.Accounts {
 
 		config.Logger.Trace().
+			Str("Connector name", conn.Connection.Bank_connector.Name).
 			Int("account_id", account.Account_id).
 			Str("account_name", account.Original_name).
 			Str("last_update", account.Last_update).
@@ -37,9 +38,10 @@ func ConnectionSynced(w http.ResponseWriter, r *http.Request) {
 			Msg("Account Update")
 
 		// Create bank account if it does not exists. Otherwise, update last_update value
-		var query string = "INSERT INTO bankAccount (account_id, user_id, bank_number, original_name, balance, last_update, iban, currency, account_type, usage_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE last_update=?"
+		var query string = "INSERT INTO bankAccount (account_id, user_id, bank_original_name, bank_number, original_name, balance, last_update, iban, currency, account_type, usage_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE last_update=?, bank_original_name=?"
 		_, err = config.DB.Exec(
-			query, account.Account_id, account.User_id, account.Number, account.Original_name, account.Balance, account.Last_update, account.Iban, account.Currency.Id, account.Account_type, account.Usage, account.Last_update,
+			query, account.Account_id, account.User_id, conn.Connection.Bank_connector.Name, account.Number, account.Original_name, account.Balance, account.Last_update, account.Iban, account.Currency.Id, account.Account_type, account.Usage,
+			account.Last_update, conn.Connection.Bank_connector.Name,
 		)
 		if err != nil {
 			config.Logger.Error().Err(err).Msg(query)

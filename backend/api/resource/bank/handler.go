@@ -54,7 +54,7 @@ func GetAccounts(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var account BankAccount
-		if err := rows.Scan(&account.Account_id, &account.User_id, &account.Number, &account.Original_name, &account.Balance, &account.Last_update, &account.Iban, &account.Currency, &account.Account_type, &account.Usage); err != nil {
+		if err := rows.Scan(&account.Account_id, &account.User_id, &account.Bank_Original_name, &account.Number, &account.Original_name, &account.Balance, &account.Last_update, &account.Iban, &account.Currency, &account.Account_type, &account.Usage); err != nil {
 			config.Logger.Error().Err(err).Msg("Cannot scan row")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
