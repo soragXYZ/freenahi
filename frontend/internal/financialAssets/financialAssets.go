@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -37,11 +38,18 @@ type Investment struct {
 	Last_update  string  `json:"last_update"`
 }
 
+type HistoryValuePoint struct {
+	Valuation     float32
+	DateValuation time.Time
+}
+
 const ( // for savings and bank account
 	nameColumn int = iota
 	valueColumn
 	repartitionColumn
 	numberOfColumns
+
+	unselectTime = 200 * time.Millisecond
 )
 
 const ( // SF = stocks and funds
@@ -205,6 +213,41 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 			applySort(id.Col, &bankingAccountTable.Table, accounts)
 		}
 		b.Refresh()
+	}
+
+	bankingAccountTable.OnSelected = func(id widget.TableCellID) {
+		go func() {
+			time.Sleep(unselectTime)
+			fyne.Do(func() {
+				bankingAccountTable.Unselect(id)
+			})
+		}()
+
+		w := app.NewWindow(fmt.Sprintf("%s: %s", accounts[id.Row].Bank_Original_name, accounts[id.Row].Original_name))
+		w.CenterOnScreen()
+		w.Resize(fyne.NewSize(600, 600))
+
+		historicalData := GetHistoryValues(app, accounts[id.Row].Id, "all")
+
+		// Sanitize data to create the graph
+		var xLabel []string
+		var yLabel []float64
+
+		for _, point := range historicalData {
+			xLabel = append(xLabel, point.DateValuation.Format("2006-01-02"))
+			yLabel = append(yLabel, float64(point.Valuation))
+		}
+
+		graphItem := helper.DrawLine(
+			xLabel,
+			yLabel,
+			fyne.NewSize(600, 600),
+			"Line graph",
+		)
+
+		w.SetContent(container.NewHBox(graphItem))
+		w.Show()
+
 	}
 
 	// Reload button reloads data by querying the backend
@@ -466,6 +509,16 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 		b.Refresh()
 	}
 
+	assetTable.OnSelected = func(id widget.TableCellID) {
+		go func() {
+			time.Sleep(unselectTime)
+			fyne.Do(func() {
+				assetTable.Unselect(id)
+			})
+		}()
+
+	}
+
 	// Reload button reloads data by querying the backend
 	reloadButton := widget.NewButton("", func() {
 		invests = GetInvests(app)
@@ -524,6 +577,39 @@ func GetInvests(app fyne.App) []Investment {
 	}
 
 	return invests
+}
+
+// ToDo: modify the function to return an error and display it if sth went wrong in the backend
+// Call the backend endpoint "/history" and retrieve value/date pairs for an account.
+// Data are used later to draw line graphs
+func GetHistoryValues(app fyne.App, account int, period string) []HistoryValuePoint {
+
+	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
+	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
+	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
+
+	url := fmt.Sprintf("%s://%s:%s/history/%d?period=%s", backendProtocol, backendIp, backendPort, account, period)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("ReadAll error")
+		return nil
+	}
+
+	var values []HistoryValuePoint
+	if err := json.Unmarshal(body, &values); err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot unmarshal HistoryValuePoint")
+		return nil
+
+	}
+
+	return values
 }
 
 // Sort table data for banking and checking

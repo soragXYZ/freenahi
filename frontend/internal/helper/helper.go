@@ -222,6 +222,40 @@ func DrawDoughnut(xData []string, yData []float64, minSize fyne.Size, name strin
 	return image
 }
 
+// This function creates a line graph image from the specified data
+func DrawLine(xData []string, yData []float64, minSize fyne.Size, name string) *canvas.Image {
+
+	opt := charts.NewLineChartOptionWithData([][]float64{yData})
+
+	opt.Theme = charts.GetTheme(charts.ThemeVividDark).WithBackgroundColor(charts.ColorTransparent)
+
+	opt.LineStrokeWidth = 3.0
+	opt.StrokeSmoothingTension = 0.3
+
+	opt.XAxis.Labels = xData
+
+	p := charts.NewPainter(charts.PainterOptions{
+		OutputFormat: charts.ChartOutputPNG,
+		Width:        int(minSize.Width),
+		Height:       int(minSize.Height),
+	})
+	err := p.LineChart(opt)
+	if err != nil {
+		Logger.Error().Err(err).Msg("Cannot create doughnut chart")
+		return nil
+	}
+	buf, err := p.Bytes()
+	if err != nil {
+		Logger.Error().Err(err).Msg("Cannot convert doughnut chart to bytes")
+		return nil
+	}
+	image := canvas.NewImageFromReader(bytes.NewReader(buf), name)
+	image.SetMinSize(minSize)
+	image.FillMode = canvas.ImageFillContain
+
+	return image
+}
+
 // Simple helper function which sets the column header icon
 // Used to refactor code
 func SetColumnHeaderIcon(value int, b *widget.Button, asc, desc int) {

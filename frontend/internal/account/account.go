@@ -48,6 +48,7 @@ const (
 var columnSort = [numberOfColumns]int{}
 
 type BankAccount struct {
+	Id                 int     `json:"id"`
 	Number             string  `json:"number"`
 	Bank_Original_name string  `json:"bank_original_name"`
 	Original_name      string  `json:"original_name"`
@@ -93,7 +94,7 @@ func createAccountTable(app fyne.App) *fyne.Container {
 	bankNameHeader := widget.NewLabel(lang.L("Name"))
 	bankNameHeader.TextStyle.Bold = true
 	bankNameHeaderSize := bankNameHeader.MinSize().Width + testIconSize
-	testBankNameLabelSize := widget.NewLabel("BoursoBank").MinSize().Width
+	testBankNameLabelSize := widget.NewLabel("Connecteur de test").MinSize().Width
 
 	accountNameHeader := widget.NewLabel(lang.L("Account name"))
 	accountNameHeader.TextStyle.Bold = true

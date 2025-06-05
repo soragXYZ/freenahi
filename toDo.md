@@ -21,3 +21,4 @@
 - Do not load everything as start up (Tabs mechanism), use tab on selected to fill the data ?
 - Add a possibility to export as PDF ?
 - Add tooltips ? https://github.com/dweymouth/fyne-tooltip
+- Refactor backend calls ? Always same structure, just URL and data type changing

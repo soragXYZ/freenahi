@@ -161,7 +161,7 @@ func ReadHistoryValue(w http.ResponseWriter, r *http.Request) {
 		for previousTime.Add(24 * time.Hour * time.Duration(daysDiff)).Before(parsedTime) {
 
 			constructedHistoryValues = append(constructedHistoryValues, HistoryValuePoint{
-				Valuation:     point.Valuation,
+				Valuation:     previousPoint.Valuation,
 				DateValuation: previousTime.Add(24 * time.Hour * time.Duration(daysDiff)),
 			})
 			daysDiff += 1
