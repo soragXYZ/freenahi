@@ -31,7 +31,9 @@ func New() *http.ServeMux {
 	router.HandleFunc("GET /bank_account/", middleware.Log(middleware.Whitelisted(bank.GetAccounts)))
 
 	router.HandleFunc("GET /investment/", middleware.Log(middleware.Whitelisted(investment.GetInvestments)))
-	router.HandleFunc("GET /investment/history/", middleware.Log(middleware.Whitelisted(investment.GetInvestmentsHistory)))
+
+	router.HandleFunc("GET /history/", middleware.Log(middleware.Whitelisted(investment.ReadHistoryValues)))
+	router.HandleFunc("GET /history/{id}", middleware.Log(middleware.Whitelisted(investment.ReadHistoryValue)))
 
 	router.HandleFunc("GET /loan/", middleware.Log(middleware.Whitelisted(loan.GetLoans)))
 

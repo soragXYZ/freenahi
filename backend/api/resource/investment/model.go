@@ -1,5 +1,7 @@
 package investment
 
+import "time"
+
 // Models taken from https://docs.powens.com/api-reference/products/wealth-aggregation/investments#data-model
 
 // https://docs.powens.com/api-reference/products/wealth-aggregation/investments#investment-object
@@ -19,9 +21,14 @@ type Investment struct {
 	Last_update  string  `json:"last_update"`
 }
 
-type HistoryInvestment struct {
-	History_invest_id int
-	Invest_id         int
-	Valuation         float32
-	Date_valuation    string
+type HistoryValue struct {
+	History_id    int
+	BankAccountId int
+	Valuation     float32
+	DateValuation string
+}
+
+type HistoryValuePoint struct {
+	Valuation     float32
+	DateValuation time.Time
 }

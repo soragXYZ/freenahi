@@ -1,7 +1,7 @@
 * Backend
 - DB datetime datetime auto / TIMESTAMP ? DEFAULT CURRENT_TIMESTAMP ???
 - Write unit tests
-- Form validation ?
+- Form validation ? "github.com/go-playground/validator/v10"
 - godoc / swagger ?
 - Verify Bearer token sent from webhooks to authenticate (we only use IP for now)
 - See what s happening when an invest is deleted ? For example, swap from 1 ETF to another

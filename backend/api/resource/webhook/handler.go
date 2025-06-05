@@ -49,6 +49,19 @@ func ConnectionSynced(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Add the current value of the account to history (used to draw graphs with historical data)
+		vals := []any{}
+		query = "INSERT INTO historyValue (bank_account_id, valuation, date_valuation) VALUES "
+		query += "(?, ?, ?),"
+		vals = append(vals, account.Account_id, account.Balance, account.Last_update)
+		query = query[0 : len(query)-1]
+		_, err = config.DB.Exec(query, vals...)
+		if err != nil {
+			config.Logger.Error().Err(err).Msg(query)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		// Proceed with loan
 		if account.Loan.Total_amount != 0 {
 			config.Logger.Trace().
@@ -150,11 +163,10 @@ func ConnectionSynced(w http.ResponseWriter, r *http.Request) {
 		// Proceed with invests
 		if len(account.Investments) != 0 {
 
-			// Bulk insert invests and historyInvest
+			// Bulk insert invests
 			query = "INSERT INTO invest (invest_id, account_id, invest_label, invest_code, invest_code_type, stock_symbol, quantity, unit_price, unit_value, valuation, diff, diff_percent, last_update) VALUES "
-			queryBis := "INSERT INTO historyInvest (invest_id, valuation, date_valuation) VALUES "
 			vals := []any{}
-			valsBis := []any{}
+
 			for _, invest := range account.Investments {
 
 				config.Logger.Trace().
@@ -168,14 +180,12 @@ func ConnectionSynced(w http.ResponseWriter, r *http.Request) {
 					Msg("Investment update")
 
 				query += "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),"
-				queryBis += "(?, ?, ?),"
+
 				vals = append(vals, invest.Invest_id, invest.Account_id, invest.Label, invest.Code, invest.Code_type, invest.Stock_symbol, invest.Quantity, invest.Unit_price, invest.Unit_value, invest.Valuation, invest.Diff, invest.Diff_percent, invest.Last_update)
-				valsBis = append(valsBis, invest.Invest_id, invest.Valuation, invest.Last_update)
 			}
 
 			// remove last comma
 			query = query[0 : len(query)-1]
-			queryBis = queryBis[0 : len(queryBis)-1]
 
 			// if duplicate entry, update the field by the new value
 			query += "AS new(a, b, c, d, e, f, Nquantity, Nunit_price, Nunit_value, Nvaluation, Ndiff, Ndiff_percent, Nlast_update)"
@@ -184,13 +194,6 @@ func ConnectionSynced(w http.ResponseWriter, r *http.Request) {
 			_, err := config.DB.Exec(query, vals...)
 			if err != nil {
 				config.Logger.Error().Err(err).Msg(query)
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-
-			_, err = config.DB.Exec(queryBis, valsBis...)
-			if err != nil {
-				config.Logger.Error().Err(err).Msg(queryBis)
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
