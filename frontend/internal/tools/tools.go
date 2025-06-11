@@ -3,7 +3,6 @@ package tools
 import (
 	"fmt"
 	"freenahiFront/internal/helper"
-	"log"
 	"math"
 	"strconv"
 
@@ -276,9 +275,7 @@ func createViewContainer(toolType int) *fyne.Container {
 			}),
 		)
 
-		radio := widget.NewRadioGroup([]string{lang.L("Outstanding capital"), lang.L("Initial capital")}, func(value string) {
-			log.Println("Radio set to", value)
-		})
+		radio := widget.NewRadioGroup([]string{lang.L("Outstanding capital"), lang.L("Initial capital")}, func(value string) {})
 		radio.Horizontal = true
 		radio.Selected = lang.L("Outstanding capital")
 		radio.OnChanged = func(value string) {

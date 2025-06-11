@@ -245,7 +245,63 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 			"Line graph",
 		)
 
-		w.SetContent(container.NewHBox(graphItem))
+		currentTotalLabel := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Current total"), helper.ValueSpacer(fmt.Sprintf("%.2f", accounts[id.Row].Balance))))
+		currentTotalLabel.Alignment = fyne.TextAlignCenter
+		currentTotalLabel.SizeName = theme.SizeNameHeadingText
+		currentTotalLabel.TextStyle.Bold = true
+
+		finalContainer := container.NewVBox()
+
+		// Update the graph data when the user select the radio button
+		radio := widget.NewRadioGroup([]string{lang.L("Month"), lang.L("Year"), lang.L("All")}, func(value string) {})
+		radio.Horizontal = true
+		radio.Selected = lang.L("All")
+		radio.OnChanged = func(value string) {
+
+			var historicalData []HistoryValuePoint
+			switch value {
+			case "":
+				radio.Selected = lang.L("All")
+				historicalData = GetHistoryValues(app, accounts[id.Row].Id, "all")
+
+			case lang.L("Month"):
+				historicalData = GetHistoryValues(app, accounts[id.Row].Id, "month")
+
+			case lang.L("Year"):
+				historicalData = GetHistoryValues(app, accounts[id.Row].Id, "year")
+
+			case lang.L("All"):
+				historicalData = GetHistoryValues(app, accounts[id.Row].Id, "all")
+
+			}
+
+			// Sanitize data to create the graph
+			var xLabel []string
+			var yLabel []float64
+
+			for _, point := range historicalData {
+				xLabel = append(xLabel, point.DateValuation.Format("2006-01-02"))
+				yLabel = append(yLabel, float64(point.Valuation))
+			}
+
+			finalContainer.Remove(graphItem)
+
+			graphItem = helper.DrawLine(
+				xLabel,
+				yLabel,
+				fyne.NewSize(600, 600),
+				"Line graph",
+			)
+
+			finalContainer.Add(graphItem)
+
+		}
+
+		finalContainer.Add(currentTotalLabel)
+		finalContainer.Add(container.NewCenter(radio))
+		finalContainer.Add(graphItem)
+
+		w.SetContent(finalContainer)
 		w.Show()
 
 	}
