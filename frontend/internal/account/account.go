@@ -2,6 +2,7 @@ package account
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -67,7 +68,27 @@ func NewAccountScreen(app fyne.App) fyne.CanvasObject {
 
 	manageButton := widget.NewButton(lang.L("Manage account with Powens"), func() {
 
-		webviewURL := getWebviewManageConnexionLink(app)
+		stringToken, err := getPermanentUserToken(app)
+		if err != nil {
+			helper.Logger.Error().Err(err).Msg("Cannot get permanent user token")
+			return
+		}
+
+		// If there is no permanent user token (first start of the app for example), create one
+		if stringToken == "" {
+			helper.Logger.Info().Msg("Creating permanent user token")
+			err := createAuthToken(app)
+			if err != nil {
+				helper.Logger.Error().Err(err).Msg("Error when creating permanent user token")
+				return
+			}
+		}
+
+		webviewURL, err := getWebviewManageConnexionLink(app)
+		if err != nil {
+			helper.Logger.Error().Err(err).Msg("Cannot get webview manage connexion link")
+			return
+		}
 
 		if err := app.OpenURL(webviewURL); err != nil {
 			helper.Logger.Error().Err(err).Msg("Cannot open the URL")
@@ -398,15 +419,39 @@ func GetBankAccounts(app fyne.App, accountType string) []BankAccount {
 	if err := json.Unmarshal(body, &accounts); err != nil {
 		helper.Logger.Error().Err(err).Msg("Cannot unmarshal bank accounts")
 		return nil
-
 	}
 
 	return accounts
 }
 
-// ToDo: modify the function to return an error and display it if sth went wrong in the backend
+// Call the backend endpoint GET "/auth/permanentUserToken" and check if the token exists
+func getPermanentUserToken(app fyne.App) (string, error) {
+
+	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
+	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
+	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
+
+	targetURL := fmt.Sprintf("%s://%s:%s/auth/permanentUserToken/", backendProtocol, backendIp, backendPort)
+	resp, err := http.Get(targetURL)
+	if err != nil {
+		return "", err
+	}
+
+	// No permanent user token registered
+	if resp.StatusCode == http.StatusNotFound {
+		return "", nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
+}
+
 // Call the backend endpoint "/webview/manageConnectionLink" and get the webview URL
-func getWebviewManageConnexionLink(app fyne.App) *url.URL {
+func getWebviewManageConnexionLink(app fyne.App) (*url.URL, error) {
 
 	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
 	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
@@ -415,24 +460,41 @@ func getWebviewManageConnexionLink(app fyne.App) *url.URL {
 	targetURL := fmt.Sprintf("%s://%s:%s/webview/manageConnectionLink/", backendProtocol, backendIp, backendPort)
 	resp, err := http.Get(targetURL)
 	if err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
-		return nil
+		return nil, err
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		helper.Logger.Error().Err(err).Msg("ReadAll error")
-		return nil
+		return nil, err
 	}
 
 	webviewURL, err := url.Parse(string(body))
 
 	if err != nil {
-		helper.Logger.Error().Err(err).Msg("URL parse error")
-		return nil
+		return nil, err
 	}
 
-	return webviewURL
+	return webviewURL, nil
+}
+
+// Call the backend endpoint POST "/auth/permanentUserToken/" to create a permanent user token
+func createAuthToken(app fyne.App) error {
+
+	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
+	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
+	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
+
+	targetURL := fmt.Sprintf("%s://%s:%s/auth/permanentUserToken/", backendProtocol, backendIp, backendPort)
+	resp, err := http.Post(targetURL, "application/json", nil)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return errors.New("error")
+	}
+
+	return nil
 }
 
 // Sort table data

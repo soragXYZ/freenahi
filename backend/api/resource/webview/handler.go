@@ -3,6 +3,7 @@ package webview
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"financialApp/config"
@@ -11,9 +12,15 @@ import (
 func GetManageLink(w http.ResponseWriter, r *http.Request) {
 
 	var code authCode = getTemporaryToken()
-	if code.Error != nil || len(code.ErrorString) > 0 {
+	if code.Error != nil {
 		config.Logger.Error().Err(code.Error).Msg(code.ErrorString)
-		http.Error(w, "", http.StatusInternalServerError)
+
+		if code.ErrorString == "Permanent user token does not exist" {
+			http.Error(w, code.ErrorString, http.StatusNotFound)
+			return
+		}
+
+		http.Error(w, code.ErrorString, http.StatusInternalServerError)
 		return
 	}
 
@@ -39,7 +46,11 @@ func getTemporaryToken() authCode {
 	if err := row.Scan(&permanentUserToken); err != nil {
 
 		if err == sql.ErrNoRows {
-			return authCode{Auth_Code: "", Error: nil, ErrorString: "Permanent user token does not exist"}
+			return authCode{
+				Auth_Code:   "",
+				Error:       errors.New("no permanent user token"),
+				ErrorString: "Permanent user token does not exist",
+			}
 		}
 
 		return authCode{Auth_Code: "", Error: err, ErrorString: query}
