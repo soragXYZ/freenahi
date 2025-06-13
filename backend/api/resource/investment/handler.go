@@ -17,7 +17,8 @@ func GetInvestments(w http.ResponseWriter, r *http.Request) {
 
 	var investments []Investment
 
-	var query string = "SELECT * FROM invest ORDER BY valuation DESC"
+	// Invest_id, Account_id, Label, Code, Code_type, Stock_symbol, Quantity, Unit_price, Unit_value, Valuation, Diff, Diff_percent, Last_update
+	var query string = "SELECT invest.invest_id, invest.account_id, invest.invest_label, invest.invest_code, invest.invest_code_type, invest.stock_symbol, invest.quantity, invest.unit_price, invest.unit_value, invest.valuation, invest.diff, invest.diff_percent, invest.last_update, bankAccount.bank_original_name, bankAccount.original_name FROM invest INNER JOIN bankAccount ON invest.account_id = bankAccount.account_id ORDER BY valuation DESC"
 	rows, err := config.DB.Query(query)
 	if err != nil {
 		config.Logger.Error().Err(err).Msg(query)
@@ -28,7 +29,7 @@ func GetInvestments(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var investment Investment
-		if err := rows.Scan(&investment.Invest_id, &investment.Account_id, &investment.Label, &investment.Code, &investment.Code_type, &investment.Stock_symbol, &investment.Quantity, &investment.Unit_price, &investment.Unit_value, &investment.Valuation, &investment.Diff, &investment.Diff_percent, &investment.Last_update); err != nil {
+		if err := rows.Scan(&investment.Invest_id, &investment.Account_id, &investment.Label, &investment.Code, &investment.Code_type, &investment.Stock_symbol, &investment.Quantity, &investment.Unit_price, &investment.Unit_value, &investment.Valuation, &investment.Diff, &investment.Diff_percent, &investment.Last_update, &investment.BankOriginalName, &investment.OriginalName); err != nil {
 			config.Logger.Error().Err(err).Msg("Cannot scan row")
 			http.Error(w, "", http.StatusInternalServerError)
 			return

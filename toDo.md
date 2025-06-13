@@ -22,3 +22,6 @@
 - Add a possibility to export as PDF ?
 - Add tooltips ? https://github.com/dweymouth/fyne-tooltip
 - Refactor backend calls ? Always same structure, just URL and data type changing
+- Refactor financial asset
+- Wealth view: replace bank original name by its icon
+- Create a table of drop down menu for invest (1 menu contains multiple invest, GROUP BY. Ex PEA: MSCI, Liquidity...)

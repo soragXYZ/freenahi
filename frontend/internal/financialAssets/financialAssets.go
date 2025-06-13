@@ -23,19 +23,21 @@ import (
 
 // https://docs.powens.com/api-reference/products/wealth-aggregation/investments#investment-object
 type Investment struct {
-	Invest_id    int     `json:"id"`
-	Account_id   int     `json:"id_account"`
-	Label        string  `json:"label"`
-	Code         string  `json:"code"`
-	Code_type    string  `json:"code_type"`
-	Stock_symbol string  `json:"stock_symbol"`
-	Quantity     float32 `json:"quantity"`
-	Unit_price   float32 `json:"unitprice"`
-	Unit_value   float32 `json:"unitvalue"`
-	Valuation    float32 `json:"valuation"`
-	Diff         float32 `json:"diff"`
-	Diff_percent float32 `json:"diff_percent"`
-	Last_update  string  `json:"last_update"`
+	Invest_id        int     `json:"id"`
+	Account_id       int     `json:"id_account"`
+	Label            string  `json:"label"`
+	Code             string  `json:"code"`
+	Code_type        string  `json:"code_type"`
+	Stock_symbol     string  `json:"stock_symbol"`
+	Quantity         float32 `json:"quantity"`
+	Unit_price       float32 `json:"unitprice"`
+	Unit_value       float32 `json:"unitvalue"`
+	Valuation        float32 `json:"valuation"`
+	Diff             float32 `json:"diff"`
+	Diff_percent     float32 `json:"diff_percent"`
+	Last_update      string  `json:"last_update"`
+	BankOriginalName string  `json:"bank_original_name"`
+	OriginalName     string  `json:"original_name"`
 }
 
 type HistoryValuePoint struct {
@@ -173,7 +175,7 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 			switch id.Col {
 			case nameColumn:
 				accountNameItem.Show()
-				accountNameItem.Content.(*widget.Label).SetText(accounts[id.Row].Original_name)
+				accountNameItem.Content.(*widget.Label).SetText(accounts[id.Row].Bank_Original_name + ": " + accounts[id.Row].Original_name)
 
 			case valueColumn:
 				valueItem.Show()
@@ -530,7 +532,7 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 			case SFnameColumn:
 				assetNameItem.Show()
 				name := assetNameItem.Objects[0].(*fyne.Container).Objects[0].(*container.Scroll).Content.(*widget.Label)
-				name.SetText(invests[id.Row].Label)
+				name.SetText(invests[id.Row].BankOriginalName + ": " + invests[id.Row].OriginalName + ": " + invests[id.Row].Label)
 				isin := assetNameItem.Objects[0].(*fyne.Container).Objects[1].(*fyne.Container).Objects[0].(*widget.Label)
 				if invests[id.Row].Code_type == "ISIN" {
 					isin.Show()
@@ -801,9 +803,9 @@ func applySort(col int, t *widget.Table, data []account.BankAccount) {
 		switch col {
 		case nameColumn:
 			if order == sortAsc {
-				return a.Original_name < b.Original_name
+				return a.Bank_Original_name+": "+a.Original_name < b.Bank_Original_name+": "+b.Original_name
 			}
-			return a.Original_name > b.Original_name
+			return a.Bank_Original_name+": "+a.Original_name > b.Bank_Original_name+": "+b.Original_name
 
 		case valueColumn, repartitionColumn:
 			if order == sortAsc {
@@ -847,9 +849,9 @@ func applySortSF(col int, t *widget.Table, data []Investment) {
 		switch col {
 		case SFnameColumn:
 			if order == sortAsc {
-				return a.Label < b.Label
+				return a.BankOriginalName+": "+a.OriginalName+": "+a.Label < b.BankOriginalName+": "+b.OriginalName+": "+b.Label
 			}
-			return a.Label > b.Label
+			return a.BankOriginalName+": "+a.OriginalName+": "+a.Label > b.BankOriginalName+": "+b.OriginalName+": "+b.Label
 
 		case SFvalueColumn, SFrepartitionColumn:
 			if order == sortAsc {
