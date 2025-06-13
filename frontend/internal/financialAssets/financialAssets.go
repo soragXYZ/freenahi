@@ -227,7 +227,7 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 		w.CenterOnScreen()
 		w.Resize(fyne.NewSize(600, 600))
 
-		historicalData := GetHistoryValues(app, accounts[id.Row].Id, "all")
+		historicalData := GetSingleHistoryValues(app, accounts[id.Row].Id, "all")
 
 		// Sanitize data to create the graph
 		var xLabel []string
@@ -262,16 +262,16 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 			switch value {
 			case "":
 				radio.Selected = lang.L("All")
-				historicalData = GetHistoryValues(app, accounts[id.Row].Id, "all")
+				historicalData = GetSingleHistoryValues(app, accounts[id.Row].Id, "all")
 
 			case lang.L("Month"):
-				historicalData = GetHistoryValues(app, accounts[id.Row].Id, "month")
+				historicalData = GetSingleHistoryValues(app, accounts[id.Row].Id, "month")
 
 			case lang.L("Year"):
-				historicalData = GetHistoryValues(app, accounts[id.Row].Id, "year")
+				historicalData = GetSingleHistoryValues(app, accounts[id.Row].Id, "year")
 
 			case lang.L("All"):
-				historicalData = GetHistoryValues(app, accounts[id.Row].Id, "all")
+				historicalData = GetSingleHistoryValues(app, accounts[id.Row].Id, "all")
 
 			}
 
@@ -284,6 +284,7 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 				yLabel = append(yLabel, float64(point.Valuation))
 			}
 
+			// Remove the older graph, draw again, then replace
 			finalContainer.Remove(graphItem)
 
 			graphItem = helper.DrawLine(
@@ -320,6 +321,76 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 
 	bankingAccountItem := container.NewBorder(nil, container.NewBorder(nil, nil, nil, reloadButton, nil), nil, nil, bankingAccountTable)
 
+	// Summarize every data of type accountType in a graph
+	historicalData := GetMultipleHistoryValues(app, "all", accountType)
+
+	// Sanitize data to create the graph
+	var xLabel []string
+	var yLabel []float64
+
+	for _, point := range historicalData {
+		xLabel = append(xLabel, point.DateValuation.Format("2006-01-02"))
+		yLabel = append(yLabel, float64(point.Valuation))
+	}
+
+	graphItem := helper.DrawLine(
+		xLabel,
+		yLabel,
+		fyne.NewSize(600, 250),
+		"Line graph",
+	)
+
+	finalContainer := container.NewVBox()
+
+	// Update the graph data when the user select the radio button
+	topGraphRadio := widget.NewRadioGroup([]string{lang.L("Month"), lang.L("Year"), lang.L("All")}, func(value string) {})
+	topGraphRadio.Horizontal = true
+	topGraphRadio.Selected = lang.L("All")
+	topGraphRadio.OnChanged = func(value string) {
+
+		var historicalData []HistoryValuePoint
+		switch value {
+		case "":
+			topGraphRadio.Selected = lang.L("All")
+			historicalData = GetMultipleHistoryValues(app, "all", accountType)
+
+		case lang.L("Month"):
+			historicalData = GetMultipleHistoryValues(app, "month", accountType)
+
+		case lang.L("Year"):
+			historicalData = GetMultipleHistoryValues(app, "year", accountType)
+
+		case lang.L("All"):
+			historicalData = GetMultipleHistoryValues(app, "all", accountType)
+
+		}
+
+		// Sanitize data to create the graph
+		var xLabel []string
+		var yLabel []float64
+
+		for _, point := range historicalData {
+			xLabel = append(xLabel, point.DateValuation.Format("2006-01-02"))
+			yLabel = append(yLabel, float64(point.Valuation))
+		}
+
+		// Remove the older graph, draw again, then replace
+		finalContainer.Remove(graphItem)
+
+		graphItem = helper.DrawLine(
+			xLabel,
+			yLabel,
+			fyne.NewSize(600, 250),
+			"Line graph",
+		)
+
+		finalContainer.Add(graphItem)
+
+	}
+
+	finalContainer.Add(container.NewCenter(topGraphRadio))
+	finalContainer.Add(graphItem)
+
 	totalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
 	totalItem.Alignment = fyne.TextAlignCenter
 	totalItem.SizeName = theme.SizeNameHeadingText
@@ -331,7 +402,7 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 		container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer()),
 	)
 
-	return container.NewBorder(nil, nil, nil, totalContainer, bankingAccountItem)
+	return container.NewBorder(finalContainer, nil, nil, totalContainer, bankingAccountItem)
 }
 
 func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
@@ -636,15 +707,48 @@ func GetInvests(app fyne.App) []Investment {
 }
 
 // ToDo: modify the function to return an error and display it if sth went wrong in the backend
-// Call the backend endpoint "/history" and retrieve value/date pairs for an account.
+// Call the backend endpoint "/history/{id}" and retrieve value/date pairs for the given account.
 // Data are used later to draw line graphs
-func GetHistoryValues(app fyne.App, account int, period string) []HistoryValuePoint {
+func GetSingleHistoryValues(app fyne.App, account int, period string) []HistoryValuePoint {
 
 	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
 	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
 	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
 
 	url := fmt.Sprintf("%s://%s:%s/history/%d?period=%s", backendProtocol, backendIp, backendPort, account, period)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("ReadAll error")
+		return nil
+	}
+
+	var values []HistoryValuePoint
+	if err := json.Unmarshal(body, &values); err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot unmarshal HistoryValuePoint")
+		return nil
+
+	}
+
+	return values
+}
+
+// ToDo: modify the function to return an error and display it if sth went wrong in the backend
+// Call the backend endpoint "/history/" and retrieve value/date pairs for a type of account.
+// Data are used later to draw line graphs
+func GetMultipleHistoryValues(app fyne.App, period, accountType string) []HistoryValuePoint {
+
+	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
+	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
+	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
+
+	url := fmt.Sprintf("%s://%s:%s/history/?period=%s&type=%s", backendProtocol, backendIp, backendPort, period, accountType)
 
 	resp, err := http.Get(url)
 	if err != nil {
