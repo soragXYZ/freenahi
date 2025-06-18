@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 
@@ -411,6 +412,222 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 
 	// Fill invests: backend call
 	invests := GetInvests(app)
+
+	total := 0.0
+
+	for _, invest := range invests {
+		total += float64(invest.Valuation)
+	}
+
+	bankAccounts := []widget.TreeNodeID{}                 // Contains the name of the account
+	investMap := make(map[string][]Investment)            // Mapping an account name to its invest: ex: BoursoBank: PEA, loan, PEA-PME, etc...
+	investNameMap := make(map[string][]widget.TreeNodeID) // Mapping an account name to its invest name
+
+	// Fill the maps
+	for _, invest := range invests {
+		if !slices.Contains(bankAccounts, invest.BankOriginalName) {
+			bankAccounts = append(bankAccounts, invest.BankOriginalName)
+		}
+		investMap[invest.BankOriginalName] = append(investMap[invest.BankOriginalName], invest)
+		investNameMap[invest.BankOriginalName] = append(investNameMap[invest.BankOriginalName], invest.Label)
+	}
+
+	// Create the asset tables
+	investAssetTableMap := make(map[string]*widget.Table) // Mapping an account name to its asset table
+
+	for bankAccount, invests := range investMap {
+		investAssetTableMap[bankAccount] = createAssetTable(invests)
+	}
+
+	tree := widget.NewTree(
+		func(id widget.TreeNodeID) []widget.TreeNodeID {
+
+			if id == "" {
+				return bankAccounts
+			}
+
+			if slices.Contains(bankAccounts, id) {
+				// we append a X to the name of the leaf so the identifiers for the branch and the leaf are unique
+				return []string{id + "X"}
+			}
+
+			return []string{}
+		},
+		func(id widget.TreeNodeID) bool {
+			return id == "" || investNameMap[id] != nil
+		},
+		func(branch bool) fyne.CanvasObject {
+
+			// If branch (ie top level, only display the name of the bank account)
+			if branch {
+				return widget.NewLabel("Branch")
+			}
+
+			// If leaf, display a table with every invest related to this bank account
+			// We fill the table with garbage data just to ...
+			testTable := widget.NewTable(
+				func() (int, int) {
+					return 3, SFnumberOfColumns
+				},
+				func() fyne.CanvasObject {
+					return widget.NewLabel("Template")
+				},
+				func(widget.TableCellID, fyne.CanvasObject) {
+
+				},
+			)
+
+			return container.NewVBox(testTable)
+		},
+		func(id widget.TreeNodeID, branch bool, o fyne.CanvasObject) {
+
+			if branch {
+				label := o.(*widget.Label)
+				label.SetText(id)
+				return
+			} else {
+				// We are on the leaf, so the id is the name of the bankAccount + X we added earlier
+				// We remove the X to get the correct key
+				correctId := string(id[:len(id)-1])
+				o.(*fyne.Container).Objects[0] = investAssetTableMap[correctId]
+			}
+
+		},
+	)
+
+	// Reload button reloads data by querying the backend
+	reloadButton := widget.NewButton("", func() {
+		invests = GetInvests(app)
+
+		for _, assetTable := range investAssetTableMap {
+			assetTable.Refresh()
+			applySortSF(0, assetTable, invests)
+
+		}
+
+		// Reset header sorting if any
+		SFColumnSort[0] = numberOfSorts
+	})
+
+	reloadButton.Icon = theme.ViewRefreshIcon()
+
+	// assetTableItem := container.NewBorder(nil, container.NewBorder(nil, nil, nil, reloadButton, nil), nil, nil, assetTable)
+
+	totalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
+	totalItem.Alignment = fyne.TextAlignCenter
+	totalItem.SizeName = theme.SizeNameHeadingText
+
+	totalContainer := container.NewBorder(
+		nil,
+		nil,
+		widget.NewSeparator(),
+		container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer()),
+	)
+
+	return container.NewBorder(nil, nil, nil, totalContainer, tree)
+}
+
+// ToDo: modify the function to return an error and display it if sth went wrong in the backend
+// Call the backend endpoint "/investment" and retrieve investments
+func GetInvests(app fyne.App) []Investment {
+
+	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
+	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
+	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
+
+	url := fmt.Sprintf("%s://%s:%s/investment/", backendProtocol, backendIp, backendPort)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("ReadAll error")
+		return nil
+	}
+
+	var invests []Investment
+	if err := json.Unmarshal(body, &invests); err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot unmarshal investments")
+		return nil
+
+	}
+
+	return invests
+}
+
+// ToDo: modify the function to return an error and display it if sth went wrong in the backend
+// Call the backend endpoint "/history/{id}" and retrieve value/date pairs for the given account.
+// Data are used later to draw line graphs
+func GetSingleHistoryValues(app fyne.App, account int, period string) []HistoryValuePoint {
+
+	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
+	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
+	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
+
+	url := fmt.Sprintf("%s://%s:%s/history/%d?period=%s", backendProtocol, backendIp, backendPort, account, period)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("ReadAll error")
+		return nil
+	}
+
+	var values []HistoryValuePoint
+	if err := json.Unmarshal(body, &values); err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot unmarshal HistoryValuePoint")
+		return nil
+
+	}
+
+	return values
+}
+
+// ToDo: modify the function to return an error and display it if sth went wrong in the backend
+// Call the backend endpoint "/history/" and retrieve value/date pairs for a type of account.
+// Data are used later to draw line graphs
+func GetMultipleHistoryValues(app fyne.App, period, accountType string) []HistoryValuePoint {
+
+	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
+	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
+	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
+
+	url := fmt.Sprintf("%s://%s:%s/history/?period=%s&type=%s", backendProtocol, backendIp, backendPort, period, accountType)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("ReadAll error")
+		return nil
+	}
+
+	var values []HistoryValuePoint
+	if err := json.Unmarshal(body, &values); err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot unmarshal HistoryValuePoint")
+		return nil
+
+	}
+
+	return values
+}
+
+// Create an asset table for the given invests
+func createAssetTable(invests []Investment) *widget.Table {
+
 	total := 0.0
 
 	for _, invest := range invests {
@@ -648,130 +865,7 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 
 	}
 
-	// Reload button reloads data by querying the backend
-	reloadButton := widget.NewButton("", func() {
-		invests = GetInvests(app)
-		assetTable.Refresh()
-
-		// Reset header sorting if any
-		SFColumnSort[0] = numberOfSorts
-		applySortSF(0, assetTable, invests)
-	})
-
-	reloadButton.Icon = theme.ViewRefreshIcon()
-
-	assetTableItem := container.NewBorder(nil, container.NewBorder(nil, nil, nil, reloadButton, nil), nil, nil, assetTable)
-
-	totalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
-	totalItem.Alignment = fyne.TextAlignCenter
-	totalItem.SizeName = theme.SizeNameHeadingText
-
-	totalContainer := container.NewBorder(
-		nil,
-		nil,
-		widget.NewSeparator(),
-		container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer()),
-	)
-
-	return container.NewBorder(nil, nil, nil, totalContainer, assetTableItem)
-}
-
-// ToDo: modify the function to return an error and display it if sth went wrong in the backend
-// Call the backend endpoint "/investment" and retrieve investments
-func GetInvests(app fyne.App) []Investment {
-
-	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
-	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
-	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
-
-	url := fmt.Sprintf("%s://%s:%s/investment/", backendProtocol, backendIp, backendPort)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
-		return nil
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("ReadAll error")
-		return nil
-	}
-
-	var invests []Investment
-	if err := json.Unmarshal(body, &invests); err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot unmarshal investments")
-		return nil
-
-	}
-
-	return invests
-}
-
-// ToDo: modify the function to return an error and display it if sth went wrong in the backend
-// Call the backend endpoint "/history/{id}" and retrieve value/date pairs for the given account.
-// Data are used later to draw line graphs
-func GetSingleHistoryValues(app fyne.App, account int, period string) []HistoryValuePoint {
-
-	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
-	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
-	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
-
-	url := fmt.Sprintf("%s://%s:%s/history/%d?period=%s", backendProtocol, backendIp, backendPort, account, period)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
-		return nil
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("ReadAll error")
-		return nil
-	}
-
-	var values []HistoryValuePoint
-	if err := json.Unmarshal(body, &values); err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot unmarshal HistoryValuePoint")
-		return nil
-
-	}
-
-	return values
-}
-
-// ToDo: modify the function to return an error and display it if sth went wrong in the backend
-// Call the backend endpoint "/history/" and retrieve value/date pairs for a type of account.
-// Data are used later to draw line graphs
-func GetMultipleHistoryValues(app fyne.App, period, accountType string) []HistoryValuePoint {
-
-	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
-	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
-	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
-
-	url := fmt.Sprintf("%s://%s:%s/history/?period=%s&type=%s", backendProtocol, backendIp, backendPort, period, accountType)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
-		return nil
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("ReadAll error")
-		return nil
-	}
-
-	var values []HistoryValuePoint
-	if err := json.Unmarshal(body, &values); err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot unmarshal HistoryValuePoint")
-		return nil
-
-	}
-
-	return values
+	return assetTable
 }
 
 // Sort table data for banking and checking
