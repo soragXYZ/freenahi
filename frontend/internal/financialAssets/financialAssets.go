@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/lang"
 	"fyne.io/fyne/v2/layout"
@@ -114,7 +115,7 @@ func (t *customTable) Resize(size fyne.Size) {
 // Create the Financial asset tab view
 func NewFinancialAssetsScreen(app fyne.App, win fyne.Window) *container.AppTabs {
 
-	wipItem := widget.NewLabel("Work in progress")
+	wipItem := widget.NewLabel(lang.L("Work in progress"))
 	wipItem.SizeName = theme.SizeNameHeadingText
 	wipItem.Alignment = fyne.TextAlignCenter
 	wipItem.TextStyle.Bold = true
@@ -218,6 +219,7 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 		b.Refresh()
 	}
 
+	// When clicking on a row, open a new window containing a graph with balance details
 	bankingAccountTable.OnSelected = func(id widget.TableCellID) {
 		go func() {
 			time.Sleep(unselectTime)
@@ -226,86 +228,34 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 			})
 		}()
 
-		w := app.NewWindow(fmt.Sprintf("%s: %s", accounts[id.Row].Bank_Original_name, accounts[id.Row].Original_name))
-		w.CenterOnScreen()
-		w.Resize(fyne.NewSize(600, 600))
-
-		historicalData := GetSingleHistoryValues(app, accounts[id.Row].Id, "all")
-
-		// Sanitize data to create the graph
-		var xLabel []string
-		var yLabel []float64
-
-		for _, point := range historicalData {
-			xLabel = append(xLabel, point.DateValuation.Format("2006-01-02"))
-			yLabel = append(yLabel, float64(point.Valuation))
-		}
+		xLabel, yLabel := prepareGraphData(GetHistoryValues(app, accounts[id.Row].Id, "all", ""))
+		graphSize := fyne.NewSize(600, 600)
 
 		graphItem := helper.DrawLine(
 			xLabel,
 			yLabel,
-			fyne.NewSize(600, 600),
+			graphSize,
 			"Line graph",
 		)
+
+		w := app.NewWindow(fmt.Sprintf("%s: %s", accounts[id.Row].Bank_Original_name, accounts[id.Row].Original_name))
+		w.CenterOnScreen()
+		w.Resize(graphSize)
 
 		currentTotalLabel := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Current total"), helper.ValueSpacer(fmt.Sprintf("%.2f", accounts[id.Row].Balance))))
 		currentTotalLabel.Alignment = fyne.TextAlignCenter
 		currentTotalLabel.SizeName = theme.SizeNameHeadingText
 		currentTotalLabel.TextStyle.Bold = true
 
-		finalContainer := container.NewVBox()
+		graphContainer := container.NewVBox()
 
-		// Update the graph data when the user select the radio button
-		radio := widget.NewRadioGroup([]string{lang.L("Month"), lang.L("Year"), lang.L("All")}, func(value string) {})
-		radio.Horizontal = true
-		radio.Selected = lang.L("All")
-		radio.OnChanged = func(value string) {
+		radio := generateGraphRadio(app, accounts[id.Row].Id, "", graphItem, graphSize, graphContainer)
 
-			var historicalData []HistoryValuePoint
-			switch value {
-			case "":
-				radio.Selected = lang.L("All")
-				historicalData = GetSingleHistoryValues(app, accounts[id.Row].Id, "all")
+		graphContainer.Add(currentTotalLabel)
+		graphContainer.Add(container.NewCenter(radio))
+		graphContainer.Add(graphItem)
 
-			case lang.L("Month"):
-				historicalData = GetSingleHistoryValues(app, accounts[id.Row].Id, "month")
-
-			case lang.L("Year"):
-				historicalData = GetSingleHistoryValues(app, accounts[id.Row].Id, "year")
-
-			case lang.L("All"):
-				historicalData = GetSingleHistoryValues(app, accounts[id.Row].Id, "all")
-
-			}
-
-			// Sanitize data to create the graph
-			var xLabel []string
-			var yLabel []float64
-
-			for _, point := range historicalData {
-				xLabel = append(xLabel, point.DateValuation.Format("2006-01-02"))
-				yLabel = append(yLabel, float64(point.Valuation))
-			}
-
-			// Remove the older graph, draw again, then replace
-			finalContainer.Remove(graphItem)
-
-			graphItem = helper.DrawLine(
-				xLabel,
-				yLabel,
-				fyne.NewSize(600, 600),
-				"Line graph",
-			)
-
-			finalContainer.Add(graphItem)
-
-		}
-
-		finalContainer.Add(currentTotalLabel)
-		finalContainer.Add(container.NewCenter(radio))
-		finalContainer.Add(graphItem)
-
-		w.SetContent(finalContainer)
+		w.SetContent(graphContainer)
 		w.Show()
 
 	}
@@ -322,76 +272,25 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 
 	reloadButton.Icon = theme.ViewRefreshIcon()
 
-	// Summarize every data of type accountType in a graph
-	historicalData := GetMultipleHistoryValues(app, "all", accountType)
-
-	// Sanitize data to create the graph
-	var xLabel []string
-	var yLabel []float64
-
-	for _, point := range historicalData {
-		xLabel = append(xLabel, point.DateValuation.Format("2006-01-02"))
-		yLabel = append(yLabel, float64(point.Valuation))
-	}
+	xLabel, yLabel := prepareGraphData(GetHistoryValues(app, 0, "all", accountType))
+	graphSize := fyne.NewSize(600, 250)
 
 	graphItem := helper.DrawLine(
 		xLabel,
 		yLabel,
-		fyne.NewSize(600, 250),
+		graphSize,
 		"Line graph",
 	)
 
-	finalContainer := container.NewVBox()
+	// Create the graph container, containing the graph and a radio button which can update it
+	graphContainer := container.NewVBox()
 
-	// Update the graph data when the user select the radio button
-	topGraphRadio := widget.NewRadioGroup([]string{lang.L("Month"), lang.L("Year"), lang.L("All")}, func(value string) {})
-	topGraphRadio.Horizontal = true
-	topGraphRadio.Selected = lang.L("All")
-	topGraphRadio.OnChanged = func(value string) {
+	topGraphRadio := generateGraphRadio(app, 0, accountType, graphItem, graphSize, graphContainer)
 
-		var historicalData []HistoryValuePoint
-		switch value {
-		case "":
-			topGraphRadio.Selected = lang.L("All")
-			historicalData = GetMultipleHistoryValues(app, "all", accountType)
+	graphContainer.Add(container.NewCenter(topGraphRadio))
+	graphContainer.Add(graphItem)
 
-		case lang.L("Month"):
-			historicalData = GetMultipleHistoryValues(app, "month", accountType)
-
-		case lang.L("Year"):
-			historicalData = GetMultipleHistoryValues(app, "year", accountType)
-
-		case lang.L("All"):
-			historicalData = GetMultipleHistoryValues(app, "all", accountType)
-
-		}
-
-		// Sanitize data to create the graph
-		var xLabel []string
-		var yLabel []float64
-
-		for _, point := range historicalData {
-			xLabel = append(xLabel, point.DateValuation.Format("2006-01-02"))
-			yLabel = append(yLabel, float64(point.Valuation))
-		}
-
-		// Remove the older graph, draw again, then replace
-		finalContainer.Remove(graphItem)
-
-		graphItem = helper.DrawLine(
-			xLabel,
-			yLabel,
-			fyne.NewSize(600, 250),
-			"Line graph",
-		)
-
-		finalContainer.Add(graphItem)
-
-	}
-
-	finalContainer.Add(container.NewCenter(topGraphRadio))
-	finalContainer.Add(graphItem)
-
+	// Create the total container, containing the sum of every savings / banking account balance
 	totalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
 	totalItem.Alignment = fyne.TextAlignCenter
 	totalItem.SizeName = theme.SizeNameHeadingText
@@ -404,7 +303,7 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 	)
 
 	return container.NewBorder(
-		finalContainer,
+		graphContainer,
 		container.NewBorder(nil, nil, nil, reloadButton),
 		nil,
 		totalContainer,
@@ -438,6 +337,7 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 	investMap := make(map[string][]Investment) // Mapping an account name to its invest: ex: BoursoBank: PEA, loan, PEA-PME, etc...
 
 	// Fill the maps
+	// ToDo: Should be done in the backend ? Group by bank account id and automatically return a map ?
 	for _, invest := range invests {
 		if !slices.Contains(bankAccounts, invest.OriginalName) {
 			bankAccounts = append(bankAccounts, invest.OriginalName)
@@ -449,7 +349,7 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 	investAssetAccordion := widget.NewAccordion()
 
 	for _, invests := range investMap {
-		investAssetAccordion.Append(createAssetTable(invests))
+		investAssetAccordion.Append(createAssetTable(invests, app))
 	}
 
 	// Reload button reloads data by querying the backend
@@ -483,7 +383,7 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 		SFColumnSort[0] = numberOfSorts
 
 		for _, invests := range investMap {
-			investAssetAccordion.Append(createAssetTable(invests))
+			investAssetAccordion.Append(createAssetTable(invests, app))
 		}
 
 		totalItem.SetText(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
@@ -500,106 +400,8 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 	)
 }
 
-// ToDo: modify the function to return an error and display it if sth went wrong in the backend
-// Call the backend endpoint "/investment" and retrieve investments
-func GetInvests(app fyne.App) []Investment {
-
-	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
-	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
-	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
-
-	url := fmt.Sprintf("%s://%s:%s/investment/", backendProtocol, backendIp, backendPort)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
-		return nil
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("ReadAll error")
-		return nil
-	}
-
-	var invests []Investment
-	if err := json.Unmarshal(body, &invests); err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot unmarshal investments")
-		return nil
-
-	}
-
-	return invests
-}
-
-// ToDo: modify the function to return an error and display it if sth went wrong in the backend
-// Call the backend endpoint "/history/{id}" and retrieve value/date pairs for the given account.
-// Data are used later to draw line graphs
-func GetSingleHistoryValues(app fyne.App, account int, period string) []HistoryValuePoint {
-
-	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
-	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
-	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
-
-	url := fmt.Sprintf("%s://%s:%s/history/%d?period=%s", backendProtocol, backendIp, backendPort, account, period)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
-		return nil
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("ReadAll error")
-		return nil
-	}
-
-	var values []HistoryValuePoint
-	if err := json.Unmarshal(body, &values); err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot unmarshal HistoryValuePoint")
-		return nil
-
-	}
-
-	return values
-}
-
-// ToDo: modify the function to return an error and display it if sth went wrong in the backend
-// Call the backend endpoint "/history/" and retrieve value/date pairs for a type of account.
-// Data are used later to draw line graphs
-func GetMultipleHistoryValues(app fyne.App, period, accountType string) []HistoryValuePoint {
-
-	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
-	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
-	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
-
-	url := fmt.Sprintf("%s://%s:%s/history/?period=%s&type=%s", backendProtocol, backendIp, backendPort, period, accountType)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
-		return nil
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		helper.Logger.Error().Err(err).Msg("ReadAll error")
-		return nil
-	}
-
-	var values []HistoryValuePoint
-	if err := json.Unmarshal(body, &values); err != nil {
-		helper.Logger.Error().Err(err).Msg("Cannot unmarshal HistoryValuePoint")
-		return nil
-
-	}
-
-	return values
-}
-
 // Create an asset table for the given invests
-func createAssetTable(invests []Investment) *widget.AccordionItem {
+func createAssetTable(invests []Investment, app fyne.App) *widget.AccordionItem {
 
 	total := 0.0
 
@@ -838,10 +640,93 @@ func createAssetTable(invests []Investment) *widget.AccordionItem {
 
 	}
 
+	graphContainer := container.NewVBox()
+
+	xLabel, yLabel := prepareGraphData(GetHistoryValues(app, invests[0].Account_id, "all", ""))
+
+	graphItem := helper.DrawLine(
+		xLabel,
+		yLabel,
+		fyne.NewSize(600, 250),
+		"Line graph",
+	)
+
+	// Update the graph data when the user select the radio button
+	radio := generateGraphRadio(app, invests[0].Account_id, "", graphItem, fyne.NewSize(600, 250), graphContainer)
+
+	graphContainer.Add(container.NewCenter(radio))
+	graphContainer.Add(graphItem)
+
 	return widget.NewAccordionItem(
 		invests[0].BankOriginalName+": "+invests[0].OriginalName+" ("+helper.ValueSpacer(fmt.Sprintf("%.2f", total))+")",
-		assetTable,
+		container.NewBorder(graphContainer, nil, nil, nil, assetTable),
 	)
+}
+
+// Sanitize data to create the graph
+func prepareGraphData(data []HistoryValuePoint) ([]string, []float64) {
+
+	var xLabel []string
+	var yLabel []float64
+
+	for _, point := range data {
+		xLabel = append(xLabel, point.DateValuation.Format("2006-01-02"))
+		yLabel = append(yLabel, float64(point.Valuation))
+	}
+
+	return xLabel, yLabel
+}
+
+// Create a radio button for the graph which update it when selected
+func generateGraphRadio(
+	app fyne.App,
+	accountId int,
+	accountType string,
+	graphItem *canvas.Image,
+	size fyne.Size,
+	graphContainer *fyne.Container,
+) *widget.RadioGroup {
+
+	radio := widget.NewRadioGroup([]string{lang.L("Month"), lang.L("Year"), lang.L("All")}, func(value string) {})
+
+	radio.Horizontal = true
+	radio.Selected = lang.L("All")
+	radio.OnChanged = func(value string) {
+
+		var historicalData []HistoryValuePoint
+		switch value {
+		case "":
+			radio.Selected = lang.L("All")
+			historicalData = GetHistoryValues(app, accountId, "all", accountType)
+
+		case lang.L("Month"):
+			historicalData = GetHistoryValues(app, accountId, "month", accountType)
+
+		case lang.L("Year"):
+			historicalData = GetHistoryValues(app, accountId, "year", accountType)
+
+		case lang.L("All"):
+			historicalData = GetHistoryValues(app, accountId, "all", accountType)
+
+		}
+
+		xLabel, yLabel := prepareGraphData(historicalData)
+
+		// Remove the older graph, draw again, then replace
+		graphContainer.Remove(graphItem)
+
+		graphItem = helper.DrawLine(
+			xLabel,
+			yLabel,
+			size,
+			"Line graph",
+		)
+
+		graphContainer.Add(graphItem)
+
+	}
+
+	return radio
 }
 
 // Sort table data for banking and checking
@@ -940,4 +825,75 @@ func applySortSF(col int, t *widget.Table, data []Investment) {
 		}
 	})
 	t.Refresh()
+}
+
+// ToDo: modify the function to return an error and display it if sth went wrong in the backend
+// Call the backend endpoint "/investment" and retrieve investments
+func GetInvests(app fyne.App) []Investment {
+
+	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
+	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
+	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
+
+	url := fmt.Sprintf("%s://%s:%s/investment/", backendProtocol, backendIp, backendPort)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("ReadAll error")
+		return nil
+	}
+
+	var invests []Investment
+	if err := json.Unmarshal(body, &invests); err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot unmarshal investments")
+		return nil
+
+	}
+
+	return invests
+}
+
+// ToDo: modify the function to return an error and display it if sth went wrong in the backend
+// Call the backend endpoint "/history/" or "/history/{id}" and retrieve value/date pairs for the given account.
+// Data are used later to draw line graphs
+func GetHistoryValues(app fyne.App, account int, period, accountType string) []HistoryValuePoint {
+
+	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
+	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
+	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
+
+	var url string
+
+	if accountType != "" {
+		url = fmt.Sprintf("%s://%s:%s/history/?period=%s&type=%s", backendProtocol, backendIp, backendPort, period, accountType)
+	} else {
+		url = fmt.Sprintf("%s://%s:%s/history/%d?period=%s", backendProtocol, backendIp, backendPort, account, period)
+	}
+
+	resp, err := http.Get(url)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("ReadAll error")
+		return nil
+	}
+
+	var values []HistoryValuePoint
+	if err := json.Unmarshal(body, &values); err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot unmarshal HistoryValuePoint")
+		return nil
+
+	}
+
+	return values
 }

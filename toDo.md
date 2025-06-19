@@ -22,6 +22,5 @@
 - Add a possibility to export as PDF ?
 - Add tooltips ? https://github.com/dweymouth/fyne-tooltip
 - Refactor backend calls ? Always same structure, just URL and data type changing
-- Refactor financial asset
 - Wealth view: replace bank original name by its icon
 - Reload button for asset should reload graphs
