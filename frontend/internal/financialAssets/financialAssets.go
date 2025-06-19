@@ -322,8 +322,6 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 
 	reloadButton.Icon = theme.ViewRefreshIcon()
 
-	bankingAccountItem := container.NewBorder(nil, container.NewBorder(nil, nil, nil, reloadButton, nil), nil, nil, bankingAccountTable)
-
 	// Summarize every data of type accountType in a graph
 	historicalData := GetMultipleHistoryValues(app, "all", accountType)
 
@@ -405,7 +403,13 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 		container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer()),
 	)
 
-	return container.NewBorder(finalContainer, nil, nil, totalContainer, bankingAccountItem)
+	return container.NewBorder(
+		finalContainer,
+		container.NewBorder(nil, nil, nil, reloadButton),
+		nil,
+		totalContainer,
+		bankingAccountTable,
+	)
 }
 
 func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
@@ -419,100 +423,6 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 		total += float64(invest.Valuation)
 	}
 
-	bankAccounts := []widget.TreeNodeID{}                 // Contains the name of the account
-	investMap := make(map[string][]Investment)            // Mapping an account name to its invest: ex: BoursoBank: PEA, loan, PEA-PME, etc...
-	investNameMap := make(map[string][]widget.TreeNodeID) // Mapping an account name to its invest name
-
-	// Fill the maps
-	for _, invest := range invests {
-		if !slices.Contains(bankAccounts, invest.BankOriginalName) {
-			bankAccounts = append(bankAccounts, invest.BankOriginalName)
-		}
-		investMap[invest.BankOriginalName] = append(investMap[invest.BankOriginalName], invest)
-		investNameMap[invest.BankOriginalName] = append(investNameMap[invest.BankOriginalName], invest.Label)
-	}
-
-	// Create the asset tables
-	investAssetTableMap := make(map[string]*widget.Table) // Mapping an account name to its asset table
-
-	for bankAccount, invests := range investMap {
-		investAssetTableMap[bankAccount] = createAssetTable(invests)
-	}
-
-	tree := widget.NewTree(
-		func(id widget.TreeNodeID) []widget.TreeNodeID {
-
-			if id == "" {
-				return bankAccounts
-			}
-
-			if slices.Contains(bankAccounts, id) {
-				// we append a X to the name of the leaf so the identifiers for the branch and the leaf are unique
-				return []string{id + "X"}
-			}
-
-			return []string{}
-		},
-		func(id widget.TreeNodeID) bool {
-			return id == "" || investNameMap[id] != nil
-		},
-		func(branch bool) fyne.CanvasObject {
-
-			// If branch (ie top level, only display the name of the bank account)
-			if branch {
-				return widget.NewLabel("Branch")
-			}
-
-			// If leaf, display a table with every invest related to this bank account
-			// We fill the table with garbage data just to ...
-			testTable := widget.NewTable(
-				func() (int, int) {
-					return 3, SFnumberOfColumns
-				},
-				func() fyne.CanvasObject {
-					return widget.NewLabel("Template")
-				},
-				func(widget.TableCellID, fyne.CanvasObject) {
-
-				},
-			)
-
-			return container.NewVBox(testTable)
-		},
-		func(id widget.TreeNodeID, branch bool, o fyne.CanvasObject) {
-
-			if branch {
-				label := o.(*widget.Label)
-				label.SetText(id)
-				return
-			} else {
-				// We are on the leaf, so the id is the name of the bankAccount + X we added earlier
-				// We remove the X to get the correct key
-				correctId := string(id[:len(id)-1])
-				o.(*fyne.Container).Objects[0] = investAssetTableMap[correctId]
-			}
-
-		},
-	)
-
-	// Reload button reloads data by querying the backend
-	reloadButton := widget.NewButton("", func() {
-		invests = GetInvests(app)
-
-		for _, assetTable := range investAssetTableMap {
-			assetTable.Refresh()
-			applySortSF(0, assetTable, invests)
-
-		}
-
-		// Reset header sorting if any
-		SFColumnSort[0] = numberOfSorts
-	})
-
-	reloadButton.Icon = theme.ViewRefreshIcon()
-
-	// assetTableItem := container.NewBorder(nil, container.NewBorder(nil, nil, nil, reloadButton, nil), nil, nil, assetTable)
-
 	totalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
 	totalItem.Alignment = fyne.TextAlignCenter
 	totalItem.SizeName = theme.SizeNameHeadingText
@@ -524,7 +434,70 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 		container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer()),
 	)
 
-	return container.NewBorder(nil, nil, nil, totalContainer, tree)
+	bankAccounts := []string{}                 // Contains the name of the account
+	investMap := make(map[string][]Investment) // Mapping an account name to its invest: ex: BoursoBank: PEA, loan, PEA-PME, etc...
+
+	// Fill the maps
+	for _, invest := range invests {
+		if !slices.Contains(bankAccounts, invest.OriginalName) {
+			bankAccounts = append(bankAccounts, invest.OriginalName)
+		}
+		investMap[invest.OriginalName] = append(investMap[invest.OriginalName], invest)
+	}
+
+	// Create the asset tables
+	investAssetAccordion := widget.NewAccordion()
+
+	for _, invests := range investMap {
+		investAssetAccordion.Append(createAssetTable(invests))
+	}
+
+	// Reload button reloads data by querying the backend
+	reloadButton := widget.NewButton("", func() {
+
+		invests = GetInvests(app)
+
+		// Reinitialize the map
+		bankAccounts = []string{}
+		investMap = make(map[string][]Investment)
+
+		// Clear accordion
+		for range len(investAssetAccordion.Items) {
+			// delete index 0 and not i since item i+1 becomes i after deletion
+			investAssetAccordion.RemoveIndex(0)
+		}
+
+		total = 0
+
+		// Refill the map and recalculate total
+		for _, invest := range invests {
+
+			total += float64(invest.Valuation)
+			if !slices.Contains(bankAccounts, invest.OriginalName) {
+				bankAccounts = append(bankAccounts, invest.OriginalName)
+			}
+			investMap[invest.OriginalName] = append(investMap[invest.OriginalName], invest)
+		}
+
+		// Reset header sorting if any
+		SFColumnSort[0] = numberOfSorts
+
+		for _, invests := range investMap {
+			investAssetAccordion.Append(createAssetTable(invests))
+		}
+
+		totalItem.SetText(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
+	})
+
+	reloadButton.Icon = theme.ViewRefreshIcon()
+
+	return container.NewBorder(
+		nil,
+		container.NewBorder(nil, nil, nil, reloadButton),
+		nil,
+		totalContainer,
+		investAssetAccordion,
+	)
 }
 
 // ToDo: modify the function to return an error and display it if sth went wrong in the backend
@@ -626,7 +599,7 @@ func GetMultipleHistoryValues(app fyne.App, period, accountType string) []Histor
 }
 
 // Create an asset table for the given invests
-func createAssetTable(invests []Investment) *widget.Table {
+func createAssetTable(invests []Investment) *widget.AccordionItem {
 
 	total := 0.0
 
@@ -749,7 +722,7 @@ func createAssetTable(invests []Investment) *widget.Table {
 			case SFnameColumn:
 				assetNameItem.Show()
 				name := assetNameItem.Objects[0].(*fyne.Container).Objects[0].(*container.Scroll).Content.(*widget.Label)
-				name.SetText(invests[id.Row].BankOriginalName + ": " + invests[id.Row].OriginalName + ": " + invests[id.Row].Label)
+				name.SetText(invests[id.Row].Label)
 				isin := assetNameItem.Objects[0].(*fyne.Container).Objects[1].(*fyne.Container).Objects[0].(*widget.Label)
 				if invests[id.Row].Code_type == "ISIN" {
 					isin.Show()
@@ -865,7 +838,10 @@ func createAssetTable(invests []Investment) *widget.Table {
 
 	}
 
-	return assetTable
+	return widget.NewAccordionItem(
+		invests[0].BankOriginalName+": "+invests[0].OriginalName+" ("+helper.ValueSpacer(fmt.Sprintf("%.2f", total))+")",
+		assetTable,
+	)
 }
 
 // Sort table data for banking and checking
@@ -943,9 +919,9 @@ func applySortSF(col int, t *widget.Table, data []Investment) {
 		switch col {
 		case SFnameColumn:
 			if order == sortAsc {
-				return a.BankOriginalName+": "+a.OriginalName+": "+a.Label < b.BankOriginalName+": "+b.OriginalName+": "+b.Label
+				return a.Label < b.Label
 			}
-			return a.BankOriginalName+": "+a.OriginalName+": "+a.Label > b.BankOriginalName+": "+b.OriginalName+": "+b.Label
+			return a.Label > b.Label
 
 		case SFvalueColumn, SFrepartitionColumn:
 			if order == sortAsc {
