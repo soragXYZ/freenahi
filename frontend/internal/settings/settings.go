@@ -55,9 +55,11 @@ const (
 	SystemTrayDefault    = false
 	PreferenceSystemTray = "currentSystemTray"
 
-	ThemeDefault    = "light"
+	// ThemeDefault    = "Light" // using lang.L("Pastel") but lang not initialized
 	PreferenceTheme = "currentTheme"
 )
+
+var ThemeDefault = lang.L("Pastel")
 
 type ContextMenuButton struct {
 	widget.Button
@@ -424,7 +426,7 @@ func SetTheme(value string, app fyne.App) {
 		ctp.SetFlavor(catppuccin.Frappe)
 		app.Settings().SetTheme(ctp)
 	default:
-		helper.Logger.Fatal().Msgf("Unsupported value '%s' for theme. Should be Light, Dark or Pastel", value)
+		helper.Logger.Fatal().Msgf("Unsupported value '%s' for theme. Should be %s, %s or %s", value, lang.L("Light"), lang.L("Dark"), lang.L("Pastel"))
 	}
 	app.Preferences().SetString(PreferenceTheme, value)
 	helper.Logger.Info().Msgf("Theme set to %s", value)

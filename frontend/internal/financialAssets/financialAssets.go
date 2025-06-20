@@ -273,7 +273,7 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 	reloadButton.Icon = theme.ViewRefreshIcon()
 
 	xLabel, yLabel := prepareGraphData(GetHistoryValues(app, 0, "all", accountType))
-	graphSize := fyne.NewSize(600, 250)
+	graphSize := fyne.NewSize(600, 150)
 
 	graphItem := helper.DrawLine(
 		xLabel,
@@ -332,6 +332,28 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 		widget.NewSeparator(),
 		container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer()),
 	)
+
+	// https://docs.powens.com/api-reference/products/data-aggregation/bank-account-types#accounttypename-values
+	// Get every stock and fund possible type
+	accountType := "article83,capitalisation,crowdlending,lifeinsurance,madelin,market,pea,pee,per,perco,perp,rsp"
+
+	xLabel, yLabel := prepareGraphData(GetHistoryValues(app, 0, "all", accountType))
+	graphSize := fyne.NewSize(600, 150)
+
+	graphItem := helper.DrawLine(
+		xLabel,
+		yLabel,
+		graphSize,
+		"Line graph",
+	)
+
+	// Create the graph container, containing the graph and a radio button which can update it
+	graphContainer := container.NewVBox()
+
+	topGraphRadio := generateGraphRadio(app, 0, accountType, graphItem, graphSize, graphContainer)
+
+	graphContainer.Add(container.NewCenter(topGraphRadio))
+	graphContainer.Add(graphItem)
 
 	bankAccounts := []string{}                 // Contains the name of the account
 	investMap := make(map[string][]Investment) // Mapping an account name to its invest: ex: BoursoBank: PEA, loan, PEA-PME, etc...
@@ -392,11 +414,11 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 	reloadButton.Icon = theme.ViewRefreshIcon()
 
 	return container.NewBorder(
-		nil,
+		graphContainer,
 		container.NewBorder(nil, nil, nil, reloadButton),
 		nil,
 		totalContainer,
-		investAssetAccordion,
+		container.NewVScroll(investAssetAccordion),
 	)
 }
 
@@ -643,23 +665,24 @@ func createAssetTable(invests []Investment, app fyne.App) *widget.AccordionItem 
 	graphContainer := container.NewVBox()
 
 	xLabel, yLabel := prepareGraphData(GetHistoryValues(app, invests[0].Account_id, "all", ""))
+	graphSize := fyne.NewSize(600, 150)
 
 	graphItem := helper.DrawLine(
 		xLabel,
 		yLabel,
-		fyne.NewSize(600, 250),
+		graphSize,
 		"Line graph",
 	)
 
 	// Update the graph data when the user select the radio button
-	radio := generateGraphRadio(app, invests[0].Account_id, "", graphItem, fyne.NewSize(600, 250), graphContainer)
+	radio := generateGraphRadio(app, invests[0].Account_id, "", graphItem, graphSize, graphContainer)
 
 	graphContainer.Add(container.NewCenter(radio))
 	graphContainer.Add(graphItem)
 
 	return widget.NewAccordionItem(
 		invests[0].BankOriginalName+": "+invests[0].OriginalName+" ("+helper.ValueSpacer(fmt.Sprintf("%.2f", total))+")",
-		container.NewBorder(graphContainer, nil, nil, nil, assetTable),
+		container.NewBorder(graphContainer, nil, nil, nil, assetTable), // ToDo: have table in a container to display more than 1 row if possible
 	)
 }
 

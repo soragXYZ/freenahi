@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"financialApp/config"
@@ -57,22 +58,53 @@ func ReadHistoryValues(w http.ResponseWriter, r *http.Request) {
 	period := r.URL.Query().Get("period")
 	accountType := r.URL.Query().Get("type")
 
+	splittedAccountType := strings.Split(accountType, ",")
+
 	var rows *sql.Rows
 	var err error
-	var query string
+	query := "SELECT historyValue.bank_account_id, historyValue.valuation, historyValue.date_valuation FROM historyValue INNER JOIN bankAccount ON historyValue.bank_account_id = bankAccount.account_id AND ("
+	args := make([]any, 0)
 
 	switch period {
 	case "", "all": // Get each point
-		query = "SELECT historyValue.bank_account_id, historyValue.valuation, historyValue.date_valuation FROM historyValue INNER JOIN bankAccount ON historyValue.bank_account_id = bankAccount.account_id AND bankAccount.account_type=? ORDER BY historyValue.date_valuation"
-		rows, err = config.DB.Query(query, accountType)
+		for index, arg := range splittedAccountType {
+			if index == 0 {
+				query += "bankAccount.account_type=? "
+			} else {
+				query += "OR bankAccount.account_type=? "
+			}
+			args = append(args, arg)
+		}
+
+		query += ") ORDER BY historyValue.date_valuation"
+		rows, err = config.DB.Query(query, args...)
 
 	case "month": // Get values which are 1 month old MAX
-		query = "SELECT historyValue.bank_account_id, historyValue.valuation, historyValue.date_valuation FROM historyValue INNER JOIN bankAccount ON historyValue.bank_account_id = bankAccount.account_id AND bankAccount.account_type=? WHERE historyValue.date_valuation > ? ORDER BY historyValue.date_valuation"
-		rows, err = config.DB.Query(query, accountType, time.Now().Add(-31*24*time.Hour))
+		for index, arg := range splittedAccountType {
+			if index == 0 {
+				query += "bankAccount.account_type=? "
+			} else {
+				query += "OR bankAccount.account_type=? "
+			}
+			args = append(args, arg)
+		}
+		query += ") WHERE historyValue.date_valuation > ? ORDER BY historyValue.date_valuation"
+		args = append(args, time.Now().Add(-31*24*time.Hour))
+		rows, err = config.DB.Query(query, args...)
 
 	case "year": // Get values which are 1 year old MAX
-		query = "SELECT historyValue.bank_account_id, historyValue.valuation, historyValue.date_valuation FROM historyValue INNER JOIN bankAccount ON historyValue.bank_account_id = bankAccount.account_id AND bankAccount.account_type=? WHERE historyValue.date_valuation > ? ORDER BY historyValue.date_valuation"
-		rows, err = config.DB.Query(query, accountType, time.Now().Add(-365*24*time.Hour))
+
+		for index, arg := range splittedAccountType {
+			if index == 0 {
+				query += "bankAccount.account_type=? "
+			} else {
+				query += "OR bankAccount.account_type=? "
+			}
+			args = append(args, arg)
+		}
+		query += ") WHERE historyValue.date_valuation > ? ORDER BY historyValue.date_valuation"
+		args = append(args, time.Now().Add(-365*24*time.Hour))
+		rows, err = config.DB.Query(query, args...)
 	}
 
 	if err != nil {
