@@ -231,7 +231,7 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 		xLabel, yLabel := prepareGraphData(GetHistoryValues(app, accounts[id.Row].Id, "all", ""))
 		graphSize := fyne.NewSize(600, 600)
 
-		graphItem := helper.DrawLine(
+		internalGraphItem := helper.DrawLine(
 			xLabel,
 			yLabel,
 			graphSize,
@@ -249,28 +249,16 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 
 		graphContainer := container.NewVBox()
 
-		radio := generateGraphRadio(app, accounts[id.Row].Id, "", graphItem, graphSize, graphContainer)
+		radio := generateGraphRadio(app, accounts[id.Row].Id, "", internalGraphItem, graphSize, graphContainer)
 
 		graphContainer.Add(currentTotalLabel)
 		graphContainer.Add(container.NewCenter(radio))
-		graphContainer.Add(graphItem)
+		graphContainer.Add(internalGraphItem)
 
 		w.SetContent(graphContainer)
 		w.Show()
 
 	}
-
-	// Reload button reloads data by querying the backend
-	reloadButton := widget.NewButton("", func() {
-		accounts = account.GetBankAccounts(app, accountType)
-		bankingAccountTable.Refresh()
-
-		// Reset header sorting if any
-		columnSort[0] = numberOfSorts
-		applySort(0, &bankingAccountTable.Table, accounts)
-	})
-
-	reloadButton.Icon = theme.ViewRefreshIcon()
 
 	xLabel, yLabel := prepareGraphData(GetHistoryValues(app, 0, "all", accountType))
 	graphSize := fyne.NewSize(600, 150)
@@ -302,11 +290,30 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 		container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer()),
 	)
 
+	// Reload button reloads data by querying the backend
+	reloadButton := widget.NewButton("", func() {
+		accounts = account.GetBankAccounts(app, accountType)
+
+		total = 0.0 // Recalculate
+
+		for _, account := range accounts {
+			total += float64(account.Balance)
+		}
+		totalItem.SetText(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
+		bankingAccountTable.Refresh()
+
+		// Reset header sorting if any
+		columnSort[0] = numberOfSorts
+		applySort(0, &bankingAccountTable.Table, accounts)
+	})
+
+	reloadButton.Icon = theme.ViewRefreshIcon()
+
 	return container.NewBorder(
-		graphContainer,
+		container.NewCenter(container.NewHBox(graphContainer, totalContainer)),
 		container.NewBorder(nil, nil, nil, reloadButton),
 		nil,
-		totalContainer,
+		nil,
 		bankingAccountTable,
 	)
 }
@@ -414,10 +421,10 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 	reloadButton.Icon = theme.ViewRefreshIcon()
 
 	return container.NewBorder(
-		graphContainer,
+		container.NewCenter(container.NewHBox(graphContainer, totalContainer)),
 		container.NewBorder(nil, nil, nil, reloadButton),
 		nil,
-		totalContainer,
+		nil,
 		container.NewVScroll(investAssetAccordion),
 	)
 }

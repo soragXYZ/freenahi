@@ -112,7 +112,7 @@ func createAccountTable(app fyne.App) *fyne.Container {
 	// These values are used later to set column width sizes, which are the max between the header and an actual value
 	testIconSize := widget.NewIcon(theme.RadioButtonCheckedIcon()).MinSize().Width
 
-	bankNameHeader := widget.NewLabel(lang.L("Name"))
+	bankNameHeader := widget.NewLabel(lang.L("Plateform name"))
 	bankNameHeader.TextStyle.Bold = true
 	bankNameHeaderSize := bankNameHeader.MinSize().Width + testIconSize
 	testBankNameLabelSize := widget.NewLabel("Connecteur de test").MinSize().Width
@@ -293,7 +293,7 @@ func createAccountTable(app fyne.App) *fyne.Container {
 
 		switch id.Col {
 		case bankNameColumn:
-			b.SetText(lang.L("Name"))
+			b.SetText(lang.L("Plateform name"))
 			helper.SetColumnHeaderIcon(columnSort[bankNameColumn], b, sortAsc, sortDesc)
 
 		case accountNameColumn:

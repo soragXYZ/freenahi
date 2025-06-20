@@ -93,16 +93,16 @@ func (t *customTable) Resize(size fyne.Size) {
 	t.Table.Resize(size)
 }
 
-// Create the transaction screen
-func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
+// // Create the transaction screen
+// func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
 
-	transactionTable := createTransactionTable(app, win)
+// 	transactionTable := createTransactionTable(app, win)
 
-	return container.NewBorder(nil, nil, nil, nil, transactionTable)
-}
+// 	return container.NewBorder(nil, nil, nil, nil, transactionTable)
+// }
 
 // Create the transaction table
-func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
+func NewTransactionScreen(app fyne.App, win fyne.Window) *fyne.Container {
 
 	// These values are used later to set column width sizes, which are the max between the header and an actual value
 	pinnedHeaderLabel := widget.NewLabel(lang.L("Pinned"))
@@ -340,7 +340,23 @@ func createTransactionTable(app fyne.App, win fyne.Window) *customTable {
 
 	}
 
-	return txTable
+	// Reload button reloads data by querying the backend
+	reloadButton := widget.NewButton("", func() {
+		reachedDataEnd = false
+		txs = slices.Clone(getTransactions(1, app))
+		txTable.Refresh()
+
+	})
+
+	reloadButton.Icon = theme.ViewRefreshIcon()
+
+	return container.NewBorder(
+		nil,
+		container.NewBorder(nil, nil, nil, reloadButton),
+		nil,
+		nil,
+		txTable,
+	)
 }
 
 // ToDo: modify the function to return an error and display it if sth went wrong in the backend

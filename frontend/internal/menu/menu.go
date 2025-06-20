@@ -15,7 +15,6 @@ import (
 	"freenahiFront/internal/tools"
 	"freenahiFront/internal/topmenu"
 	"freenahiFront/internal/transactions"
-	"freenahiFront/internal/welcome"
 )
 
 // Tutorial defines the data structure for a tutorial
@@ -32,7 +31,7 @@ func NewTopMenu(app fyne.App, win fyne.Window) *fyne.MainMenu {
 		w.Show()
 	}
 
-	helpMenu := fyne.NewMenu(lang.L("Settings"),
+	parametersMenu := fyne.NewMenu(lang.L("Settings"),
 		fyne.NewMenuItem(lang.L("Interface Settings"), uiFyneSettings),
 		fyne.NewMenuItem(lang.L("General Settings"), func() { settings.NewSettings(app, win) }),
 		fyne.NewMenuItem(lang.L("User data"), func() { topmenu.ShowUserDataDialog(app, win) }),
@@ -50,15 +49,22 @@ func NewTopMenu(app fyne.App, win fyne.Window) *fyne.MainMenu {
 		// a quit item will be appended to our first menu, cannot remove it
 	)
 
+	tutorialMenu := fyne.NewMenu(lang.L("First steps"),
+		fyne.NewMenuItem(lang.L("Powens configuration"), func() {
+			u, _ := url.Parse("https://soragxyz.github.io/freenahi/getStarted/powens/")
+			_ = app.OpenURL(u)
+		}),
+	)
+
 	// Add new entries here if needed
 	return fyne.NewMainMenu(
-		helpMenu,
+		parametersMenu,
+		tutorialMenu,
 	)
 }
 
 func NewLeftMenu(app fyne.App, win fyne.Window) *container.AppTabs {
 	tabs := container.NewAppTabs(
-		container.NewTabItem("Welcome", welcome.NewWelcomeScreen()),
 		container.NewTabItem(lang.L("Financial assets"), financialassets.NewFinancialAssetsScreen(app, win)),
 		container.NewTabItem(lang.L("Accounts"), account.NewAccountScreen(app)),
 		container.NewTabItem(lang.L("Transactions"), transactions.NewTransactionScreen(app, win)),
