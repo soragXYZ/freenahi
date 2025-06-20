@@ -8,7 +8,6 @@ import (
 
 	"github.com/caarlos0/env/v11"
 	"github.com/go-sql-driver/mysql"
-	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 )
 
@@ -57,11 +56,15 @@ type ConfStruct struct {
 
 func Init() {
 
+	var err error
+
 	// Read env values from .env. Remove these 3 lines if your envs are exported from somewhere else, like Dockerfile for example
-	err := godotenv.Load()
-	if err != nil {
-		Logger.Fatal().Err(err).Msg("Failed to load .env file")
-	}
+	// These lines are usefull for local dev only and should not be used in production
+
+	// err = godotenv.Load()
+	// if err != nil {
+	// 	Logger.Fatal().Err(err).Msg("Failed to load .env file")
+	// }
 
 	if err := env.Parse(&Conf.DB); err != nil {
 		Logger.Fatal().Err(err).Msg("Failed to load env for DB")
