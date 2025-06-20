@@ -1,6 +1,8 @@
 module freenahiFront
 
-go 1.24
+go 1.24.1
+
+toolchain go1.24.2
 
 require (
 	fyne.io/fyne/v2 v2.6.1
@@ -13,7 +15,13 @@ require (
 require (
 	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/felixge/fgprof v0.9.5 // indirect
+	github.com/go-text/typesetting-utils v0.0.0-20250618110550-c820a94c77b8 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	github.com/google/pprof v0.0.0-20250607225305-033d6d78b36a // indirect
+	github.com/kr/pretty v0.3.1 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
 
 require (

@@ -26,6 +26,9 @@ import (
 
 const (
 	downloadURL = "https://github.com/soragXYZ/freenahi/releases"
+
+	owner = "soragxyz"
+	repo  = "freenahi"
 )
 
 // StatusBar struct, containing info for the application and the backend
@@ -245,9 +248,16 @@ func (a *StatusBar) showBackendInStatusBar(app fyne.App, backendInfo *backendInf
 		backendInfo.backendStatusItem.Text = ""
 
 		// Get remote backend version (ie the latest version available on github / dockerHub)
-		remoteBackendVersion, err := version.NewVersion("0.0.1") // ToDo: get the actual version of the backend when the docker image is finalized
+		imageLatestVersion, err := github.FetchDockerLatest(owner, repo)
+		if err != nil {
+			helper.Logger.Error().Err(err).Msg("Cannot fetch latest docker image version")
+			return
+		}
+
+		remoteBackendVersion, err := version.NewVersion(imageLatestVersion)
 		if err != nil {
 			helper.Logger.Error().Err(err).Msg("Version error")
+			return
 		}
 		backendInfo.backendStatusItem.Text = lang.L("Got latest backend version available")
 		// ToDo: add error message

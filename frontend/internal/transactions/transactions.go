@@ -93,14 +93,6 @@ func (t *customTable) Resize(size fyne.Size) {
 	t.Table.Resize(size)
 }
 
-// // Create the transaction screen
-// func NewTransactionScreen(app fyne.App, win fyne.Window) fyne.CanvasObject {
-
-// 	transactionTable := createTransactionTable(app, win)
-
-// 	return container.NewBorder(nil, nil, nil, nil, transactionTable)
-// }
-
 // Create the transaction table
 func NewTransactionScreen(app fyne.App, win fyne.Window) *fyne.Container {
 
