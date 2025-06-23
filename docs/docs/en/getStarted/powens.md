@@ -31,7 +31,7 @@ Your company name will be used as organization name and also to create your firs
 ???+ tip
     Note that you can fill these fields with random data
 
-## Crete a workspace and register your domain
+## Create a workspace and register your domain
 From here, you need to create a workspace. Choose the name that you want, it does not really matter
 
 ![Powens create workspace](../../assets/images/powens/workspace.png)
@@ -62,7 +62,8 @@ First thing to do is to register an email in order to receive webhook-related al
 ![Powens created webview](../../assets/images/powens/emailNotifications.png)
 
 After that, we can create our first webhook.
-For now, we are using only 1 webhook, **connection_synced**. Click and the + icon and add it
+For now, we are using only 1 webhook, **connection_synced**.  
+Click and the + icon and add it.
 
 ![Powens create webhook](../../assets/images/powens/createWebhook.png)
 

@@ -4,3 +4,4 @@ test*
 data/
 bin/
 .cache
+*.tar.xz

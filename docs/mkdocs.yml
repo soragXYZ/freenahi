@@ -72,6 +72,7 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences
+  - pymdownx.critic
   - admonition
   - pymdownx.details
   - pymdownx.tabbed:
@@ -120,7 +121,10 @@ nav:
     - What is Powens: whatIs/powens.md
 
   - Get started:
+    - Application: getStarted/application.md
     - Powens: getStarted/powens.md
+    - Server (backend): getStarted/backend.md
+    - First data: getStarted/verify.md
 
   - Backend:
     - Setup: "backend/setup.md"
