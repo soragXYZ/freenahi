@@ -11,7 +11,7 @@ A lightweight cross-platform desktop application for personal finance.
 
 ## Screenshots
 
-<img src="https://github.com/user-attachments/assets/043a52e6-c024-48aa-b809-7749af986d83" width="500" height="450">
-<img src="https://github.com/user-attachments/assets/2cdde337-8862-419f-99a1-24d13f646912" width="500" height="450">
-<img src="https://github.com/user-attachments/assets/4126a397-58da-441d-99da-e63aa4058cb8" width="500" height="450">
-<img src="https://github.com/user-attachments/assets/fdca4bd4-3f7b-459a-b2a3-8fb52e1b02ab" width="500" height="450">
+<img src="https://github.com/user-attachments/assets/043a52e6-c024-48aa-b809-7749af986d83" width="400" height="360">
+<img src="https://github.com/user-attachments/assets/2cdde337-8862-419f-99a1-24d13f646912" width="400" height="360">
+<img src="https://github.com/user-attachments/assets/4126a397-58da-441d-99da-e63aa4058cb8" width="400" height="360">
+<img src="https://github.com/user-attachments/assets/fdca4bd4-3f7b-459a-b2a3-8fb52e1b02ab" width="400" height="360">

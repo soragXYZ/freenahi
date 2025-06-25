@@ -15,8 +15,7 @@ func TestHealthCheck(t *testing.T) {
 
 	resp := httptest.NewRecorder()
 
-	handler := http.HandlerFunc(HealthCheck)
-	handler.ServeHTTP(resp, req)
+	HealthCheck(resp, req)
 
 	if status := resp.Code; status != http.StatusOK {
 		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -36,8 +35,7 @@ func TestVersion(t *testing.T) {
 
 	resp := httptest.NewRecorder()
 
-	handler := http.HandlerFunc(Version)
-	handler.ServeHTTP(resp, req)
+	Version(resp, req)
 
 	if status := resp.Code; status != http.StatusOK {
 		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)

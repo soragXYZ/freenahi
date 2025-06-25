@@ -24,3 +24,6 @@
 - Refactor backend calls ? Always same structure, just URL and data type changing
 - Wealth view: replace bank original name by its icon
 - Reload button for asset should reload graphs
+- If backend is down or no value to display, display sth to indicate no value
+- Finish general screen: add reload button, and display value for each type (list / table ?)
+- Use fyne.CanvasObject instead of *canvasText *canvasImage ?

@@ -192,7 +192,7 @@ func (a *StatusBar) startGoroutines(app fyne.App, parentWin fyne.Window, backend
 // Modify the bottom status bar to indicate (or not) that an update for the application is available
 func (a *StatusBar) showApplicationUpdateInStatusBar(app fyne.App, parentWin fyne.Window) {
 	currentVersion := app.Metadata().Version
-	remoteVersion, isRemoteNewer, err := github.AvailableUpdate("ErikKalkoken", "evebuddy", currentVersion) // ToDo: use correct repo values
+	remoteVersion, isRemoteNewer, err := github.AvailableUpdate(owner, repo, currentVersion)
 
 	if err != nil {
 		helper.Logger.Error().Err(err).Msg("Cannot fetch github version")

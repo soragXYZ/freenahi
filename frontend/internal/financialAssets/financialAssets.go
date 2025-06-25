@@ -122,7 +122,7 @@ func NewFinancialAssetsScreen(app fyne.App, win fyne.Window) *container.AppTabs 
 	wipItem.TextStyle.Italic = true
 
 	tabs := container.NewAppTabs(
-		container.NewTabItem(lang.L("General"), container.NewVBox(layout.NewSpacer(), wipItem, layout.NewSpacer())),
+		container.NewTabItem(lang.L("General"), NewGeneralScreen(app)),
 		container.NewTabItem(lang.L("Bank accounts"), NewCheckingOrSavingsScreen(app, "checking")),
 		container.NewTabItem(lang.L("Savings books"), NewCheckingOrSavingsScreen(app, "savings")),
 		container.NewTabItem(lang.L("Stocks and funds"), NewStocksAndFundsScreen(app)),
@@ -132,6 +132,71 @@ func NewFinancialAssetsScreen(app fyne.App, win fyne.Window) *container.AppTabs 
 	tabs.SetTabLocation(container.TabLocationTop)
 
 	return tabs
+}
+
+func NewGeneralScreen(app fyne.App) *fyne.Container {
+
+	// https://docs.powens.com/api-reference/products/data-aggregation/bank-account-types#accounttypename-values
+	// Get every stock and fund possible type
+	stocksType := "article83,capitalisation,crowdlending,lifeinsurance,madelin,market,pea,pee,per,perco,perp,rsp"
+
+	stocksData := GetHistoryValues(app, 0, "all", stocksType)
+	checkingData := GetHistoryValues(app, 0, "all", "savings")
+	savingsData := GetHistoryValues(app, 0, "all", "checking")
+
+	labels, xLabel, yLabel := organise(stocksData, checkingData, savingsData)
+
+	// Create the graph container, containing the graph and a radio button which can update it
+	graphContainer := container.NewVBox()
+	graphSize := fyne.NewSize(800, 450)
+
+	var graphItem *canvas.Image
+	noDataItem := helper.DrawNoData()
+
+	if len(labels) != 0 && len(xLabel) != 0 && len(yLabel) != 0 {
+		graphItem = helper.DrawStackedLines(
+			labels,
+			xLabel,
+			yLabel,
+			graphSize,
+			"Stacked general line graph",
+		)
+	}
+
+	topGraphRadio := generateMainGraphRadio(app, graphItem, noDataItem, graphSize, graphContainer)
+	graphContainer.Add(container.NewCenter(topGraphRadio))
+
+	if len(labels) != 0 && len(xLabel) != 0 && len(yLabel) != 0 {
+		graphContainer.Add(graphItem)
+	} else {
+		graphContainer.Add(noDataItem)
+	}
+
+	total := 0.0
+
+	// Total is the sum of today s value for every type
+	for _, invest := range yLabel {
+		fmt.Println(invest[len(invest)-1])
+		total += invest[len(invest)-1]
+	}
+
+	totalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
+	totalItem.Alignment = fyne.TextAlignCenter
+	totalItem.SizeName = theme.SizeNameHeadingText
+
+	totalContainer := container.NewBorder(
+		nil,
+		nil,
+		widget.NewSeparator(),
+		container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer()),
+	)
+
+	return container.NewBorder(
+		container.NewCenter(container.NewHBox(graphContainer, totalContainer)),
+		nil,
+		nil,
+		nil,
+	)
 }
 
 func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Container {
@@ -228,7 +293,7 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 			})
 		}()
 
-		xLabel, yLabel := prepareGraphData(GetHistoryValues(app, accounts[id.Row].Id, "all", ""))
+		xLabel, yLabel := convertToGraphData(GetHistoryValues(app, accounts[id.Row].Id, "all", ""))
 		graphSize := fyne.NewSize(600, 600)
 
 		internalGraphItem := helper.DrawLine(
@@ -260,7 +325,7 @@ func NewCheckingOrSavingsScreen(app fyne.App, accountType string) *fyne.Containe
 
 	}
 
-	xLabel, yLabel := prepareGraphData(GetHistoryValues(app, 0, "all", accountType))
+	xLabel, yLabel := convertToGraphData(GetHistoryValues(app, 0, "all", accountType))
 	graphSize := fyne.NewSize(600, 150)
 
 	graphItem := helper.DrawLine(
@@ -344,7 +409,7 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 	// Get every stock and fund possible type
 	accountType := "article83,capitalisation,crowdlending,lifeinsurance,madelin,market,pea,pee,per,perco,perp,rsp"
 
-	xLabel, yLabel := prepareGraphData(GetHistoryValues(app, 0, "all", accountType))
+	xLabel, yLabel := convertToGraphData(GetHistoryValues(app, 0, "all", accountType))
 	graphSize := fyne.NewSize(600, 150)
 
 	graphItem := helper.DrawLine(
@@ -671,7 +736,7 @@ func createAssetTable(invests []Investment, app fyne.App) *widget.AccordionItem 
 
 	graphContainer := container.NewVBox()
 
-	xLabel, yLabel := prepareGraphData(GetHistoryValues(app, invests[0].Account_id, "all", ""))
+	xLabel, yLabel := convertToGraphData(GetHistoryValues(app, invests[0].Account_id, "all", ""))
 	graphSize := fyne.NewSize(600, 150)
 
 	graphItem := helper.DrawLine(
@@ -693,18 +758,182 @@ func createAssetTable(invests []Investment, app fyne.App) *widget.AccordionItem 
 	)
 }
 
-// Sanitize data to create the graph
-func prepareGraphData(data []HistoryValuePoint) ([]string, []float64) {
+// Convert a list of HistoryValuePoint to a list of abscissas and ordinates for a graph
+func convertToGraphData(data []HistoryValuePoint) ([]string, []float64) {
 
-	var xLabel []string
-	var yLabel []float64
+	var x []string
+	var y []float64
 
 	for _, point := range data {
-		xLabel = append(xLabel, point.DateValuation.Format("2006-01-02"))
-		yLabel = append(yLabel, float64(point.Valuation))
+		x = append(x, point.DateValuation.Format("2006-01-02"))
+		y = append(y, float64(point.Valuation))
 	}
 
-	return xLabel, yLabel
+	return x, y
+}
+
+// This function makes history value data coherent (every type should start at the same date):
+// For example, we can have banking data starting the 01-01-2024 and checking data the 01-02-2024
+// We will add value from 01-01-2024 to 01-02-2024 for checking data so they both start at the 01-01-2024
+// We fill the gap with the value 0
+func organise(stocksData, checkingData, savingsData []HistoryValuePoint) ([]string, []string, [][]float64) {
+
+	// If no data, return nothing
+	if len(stocksData) == 0 && len(checkingData) == 0 && len(savingsData) == 0 {
+		return []string{}, []string{}, [][]float64{}
+	}
+
+	// Get the oldest date between every type
+	var minDate time.Time
+	if len(stocksData) != 0 {
+		minDate = stocksData[0].DateValuation
+	} else if len(checkingData) != 0 {
+		minDate = checkingData[0].DateValuation
+	} else if len(savingsData) != 0 {
+		minDate = savingsData[0].DateValuation
+	}
+
+	if len(savingsData) != 0 && savingsData[0].DateValuation.Before(minDate) {
+		minDate = savingsData[0].DateValuation
+	}
+
+	if len(checkingData) != 0 && checkingData[0].DateValuation.Before(minDate) {
+		minDate = checkingData[0].DateValuation
+	}
+
+	// Get the number of days since the oldest date for each type and add fill missing date with 0 value
+
+	var startDay HistoryValuePoint
+
+	if len(stocksData) != 0 {
+		startDay = stocksData[0]
+		daysDiff := minDate.Sub(stocksData[0].DateValuation).Hours() / 24
+
+		for i := -1; i >= int(daysDiff); i-- {
+			day := startDay.DateValuation.Add(24 * time.Hour * time.Duration(i))
+			stocksData = slices.Insert(stocksData, 0, HistoryValuePoint{Valuation: 0, DateValuation: day})
+		}
+	}
+
+	if len(checkingData) != 0 {
+		startDay = checkingData[0]
+		daysDiff := minDate.Sub(checkingData[0].DateValuation).Hours() / 24
+
+		for i := -1; i >= int(daysDiff); i-- {
+			day := startDay.DateValuation.Add(24 * time.Hour * time.Duration(i))
+			checkingData = slices.Insert(checkingData, 0, HistoryValuePoint{Valuation: 0, DateValuation: day})
+		}
+	}
+
+	if len(savingsData) != 0 {
+		startDay = savingsData[0]
+		daysDiff := minDate.Sub(savingsData[0].DateValuation).Hours() / 24
+
+		for i := -1; i >= int(daysDiff); i-- {
+			day := startDay.DateValuation.Add(24 * time.Hour * time.Duration(i))
+			savingsData = slices.Insert(savingsData, 0, HistoryValuePoint{Valuation: 0, DateValuation: day})
+		}
+	}
+
+	xStock, yStock := convertToGraphData(stocksData)
+	xCheckings, yCheckings := convertToGraphData(checkingData)
+	xSavings, ySavings := convertToGraphData(savingsData)
+
+	// If not empty, x<Type>Label are identicals (same list of date)
+	// We just take the first one which is not empty
+	x := []string{}
+	if len(xStock) != 0 {
+		x = xStock
+	} else if len(xCheckings) != 0 {
+		x = xCheckings
+	} else if len(xSavings) != 0 {
+		x = xSavings
+	}
+
+	labels := []string{} // Name of the series for the line graph
+	y := [][]float64{}   // Ordonate of the series
+
+	if len(stocksData) != 0 {
+		labels = append(labels, lang.L("Stocks and funds"))
+		y = append(y, yStock)
+	}
+
+	if len(checkingData) != 0 {
+		labels = append(labels, lang.L("Bank accounts"))
+		y = append(y, yCheckings)
+	}
+
+	if len(savingsData) != 0 {
+		labels = append(labels, lang.L("Savings books"))
+		y = append(y, ySavings)
+	}
+
+	return labels, x, y
+}
+
+// Create a radio button for the main / general graph which update it when selected
+func generateMainGraphRadio(
+	app fyne.App,
+	graphItem *canvas.Image,
+	noDataItem *canvas.Text,
+	size fyne.Size,
+	graphContainer *fyne.Container,
+) *widget.RadioGroup {
+
+	radio := widget.NewRadioGroup([]string{lang.L("Month"), lang.L("Year"), lang.L("All")}, func(value string) {})
+
+	radio.Horizontal = true
+	radio.Selected = lang.L("All")
+	radio.OnChanged = func(value string) {
+
+		stocksType := "article83,capitalisation,crowdlending,lifeinsurance,madelin,market,pea,pee,per,perco,perp,rsp"
+
+		var stocksData, checkingData, savingsData []HistoryValuePoint
+		switch value {
+		case "":
+			radio.Selected = lang.L("All")
+			stocksData = GetHistoryValues(app, 0, "all", stocksType)
+			checkingData = GetHistoryValues(app, 0, "all", "savings")
+			savingsData = GetHistoryValues(app, 0, "all", "checking")
+
+		case lang.L("Month"):
+			stocksData = GetHistoryValues(app, 0, "month", stocksType)
+			checkingData = GetHistoryValues(app, 0, "month", "savings")
+			savingsData = GetHistoryValues(app, 0, "month", "checking")
+
+		case lang.L("Year"):
+			stocksData = GetHistoryValues(app, 0, "year", stocksType)
+			checkingData = GetHistoryValues(app, 0, "year", "savings")
+			savingsData = GetHistoryValues(app, 0, "year", "checking")
+
+		case lang.L("All"):
+			stocksData = GetHistoryValues(app, 0, "all", stocksType)
+			checkingData = GetHistoryValues(app, 0, "all", "savings")
+			savingsData = GetHistoryValues(app, 0, "all", "checking")
+
+		}
+
+		labels, xLabel, yLabel := organise(stocksData, checkingData, savingsData)
+
+		// Remove the older graph, draw again, then replace
+		graphContainer.Remove(graphItem)
+		graphContainer.Remove(noDataItem)
+
+		if len(labels) != 0 && len(xLabel) != 0 && len(yLabel) != 0 {
+			graphItem = helper.DrawStackedLines(
+				labels,
+				xLabel,
+				yLabel,
+				size,
+				"Stacked general line graph",
+			)
+			graphContainer.Add(graphItem)
+		} else {
+			graphContainer.Add(noDataItem)
+		}
+	}
+
+	return radio
 }
 
 // Create a radio button for the graph which update it when selected
@@ -740,7 +969,7 @@ func generateGraphRadio(
 
 		}
 
-		xLabel, yLabel := prepareGraphData(historicalData)
+		xLabel, yLabel := convertToGraphData(historicalData)
 
 		// Remove the older graph, draw again, then replace
 		graphContainer.Remove(graphItem)
@@ -909,6 +1138,10 @@ func GetHistoryValues(app fyne.App, account int, period, accountType string) []H
 	resp, err := http.Get(url)
 	if err != nil {
 		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
+		return nil
+	}
+
+	if resp.StatusCode == http.StatusNoContent {
 		return nil
 	}
 

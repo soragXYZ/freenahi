@@ -2,6 +2,7 @@ package helper
 
 import (
 	"bytes"
+	"image/color"
 	"maps"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/lang"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -222,6 +224,17 @@ func DrawDoughnut(xData []string, yData []float64, minSize fyne.Size, name strin
 	return image
 }
 
+// This function returns a "No data" text
+func DrawNoData() *canvas.Text {
+
+	text := canvas.NewText(lang.L("No data"), color.White)
+	text.TextSize = 32
+	text.Alignment = fyne.TextAlignCenter
+	text.TextStyle = fyne.TextStyle{Italic: true}
+
+	return text
+}
+
 // This function creates a line graph image from the specified data
 func DrawLine(xData []string, yData []float64, minSize fyne.Size, name string) *canvas.Image {
 
@@ -247,6 +260,52 @@ func DrawLine(xData []string, yData []float64, minSize fyne.Size, name string) *
 	buf, err := p.Bytes()
 	if err != nil {
 		Logger.Error().Err(err).Msg("Cannot convert doughnut chart to bytes")
+		return nil
+	}
+	image := canvas.NewImageFromReader(bytes.NewReader(buf), name)
+	image.SetMinSize(minSize)
+	image.FillMode = canvas.ImageFillContain
+
+	return image
+}
+
+// This function creates a stacked line graph image from the specified data
+func DrawStackedLines(labels, xData []string, yData [][]float64, minSize fyne.Size, name string) *canvas.Image {
+
+	seriesList := charts.NewSeriesListLine(yData)
+
+	opt := charts.LineChartOption{
+		Theme: charts.GetTheme(charts.ThemeVividDark).WithBackgroundColor(charts.ColorTransparent),
+		Padding: charts.Box{
+			Top:    10,
+			Right:  10,
+			Left:   10,
+			Bottom: 10,
+		},
+		SeriesList:  seriesList,
+		StackSeries: charts.Ptr(true),
+		XAxis:       charts.XAxisOption{Labels: xData},
+		Legend:      charts.LegendOption{SeriesNames: labels},
+	}
+
+	opt.LineStrokeWidth = 5.0
+	opt.StrokeSmoothingTension = 0.1
+
+	// ==============================
+
+	p := charts.NewPainter(charts.PainterOptions{
+		OutputFormat: charts.ChartOutputPNG,
+		Width:        int(minSize.Width),
+		Height:       int(minSize.Height),
+	})
+	err := p.LineChart(opt)
+	if err != nil {
+		Logger.Error().Err(err).Msg("Cannot create stacked line chart")
+		return nil
+	}
+	buf, err := p.Bytes()
+	if err != nil {
+		Logger.Error().Err(err).Msg("Cannot convert stacked line chart to bytes")
 		return nil
 	}
 	image := canvas.NewImageFromReader(bytes.NewReader(buf), name)
