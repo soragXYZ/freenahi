@@ -168,17 +168,80 @@ func NewGeneralScreen(app fyne.App) *fyne.Container {
 	graphContainer.Add(container.NewCenter(topGraphRadio))
 	graphContainer.Add(graphItem)
 
-	// Create list for sums by type
-	sums := getBankAccountSums(app)
-	for _, sum := range sums {
-		fmt.Println(sum)
-	}
-
 	total := 0.0
 
 	// Total is the sum of today s value for every type
 	for _, invest := range yLabel {
 		total += invest[len(invest)-1]
+	}
+
+	// Create list for sums by type
+	sums := getBankAccountSums(app)
+
+	sumsTable := newCustomTable(
+		func() (int, int) {
+			return len(sums), numberOfColumns
+		},
+		func() fyne.CanvasObject {
+			scrollerLabel := widget.NewLabel("Template")
+			scrollerLabel.Alignment = fyne.TextAlignCenter
+			accountNameItem := container.NewHScroll(scrollerLabel)
+
+			valueItem := widget.NewLabel("Template")
+			valueItem.Alignment = fyne.TextAlignCenter
+
+			repartitionItem := widget.NewLabel("Template")
+			repartitionItem.Alignment = fyne.TextAlignCenter
+
+			return container.NewStack(accountNameItem, valueItem, repartitionItem)
+		},
+		func(id widget.TableCellID, o fyne.CanvasObject) {
+
+			accountNameItem := o.(*fyne.Container).Objects[0].(*container.Scroll)
+			valueItem := o.(*fyne.Container).Objects[1].(*widget.Label)
+			repartitionItem := o.(*fyne.Container).Objects[2].(*widget.Label)
+
+			accountNameItem.Hide()
+			valueItem.Hide()
+			repartitionItem.Hide()
+
+			switch id.Col {
+			case nameColumn:
+				accountNameItem.Show()
+				accountNameItem.Content.(*widget.Label).SetText(lang.L(sums[id.Row].Account_type))
+
+			case valueColumn:
+				valueItem.Show()
+				valueItem.SetText(helper.ValueSpacer(fmt.Sprintf("%0.2f", sums[id.Row].Value)))
+
+			case repartitionColumn:
+				repartitionItem.Show()
+				repartitionItem.SetText(fmt.Sprintf("%0.2f %%", float64(sums[id.Row].Value)/total*100))
+			}
+		},
+	)
+
+	sumsTable.ShowHeaderRow = true
+	sumsTable.CreateHeader = func() fyne.CanvasObject {
+		return widget.NewButton("000", func() {})
+	}
+	sumsTable.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
+
+		b := o.(*widget.Button)
+
+		switch id.Col {
+		case nameColumn:
+			b.SetText(lang.L("Type"))
+			helper.SetColumnHeaderIcon(columnSort[nameColumn], b, sortAsc, sortDesc)
+		case valueColumn:
+			b.SetText(lang.L("Value"))
+			helper.SetColumnHeaderIcon(columnSort[valueColumn], b, sortAsc, sortDesc)
+		case repartitionColumn:
+			b.SetText(lang.L("Repartition"))
+			helper.SetColumnHeaderIcon(columnSort[repartitionColumn], b, sortAsc, sortDesc)
+		default:
+			helper.Logger.Fatal().Msg("Too much column in the bank account sums grid for header")
+		}
 	}
 
 	totalItem := widget.NewLabel(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
@@ -195,9 +258,11 @@ func NewGeneralScreen(app fyne.App) *fyne.Container {
 	// Reload button reloads data by querying the backend
 	reloadButton := widget.NewButton("", func() {
 
-		stocksData := GetHistoryValues(app, 0, "all", stocksType)
-		checkingData := GetHistoryValues(app, 0, "all", "savings")
-		savingsData := GetHistoryValues(app, 0, "all", "checking")
+		stocksData = GetHistoryValues(app, 0, "all", stocksType)
+		checkingData = GetHistoryValues(app, 0, "all", "savings")
+		savingsData = GetHistoryValues(app, 0, "all", "checking")
+
+		sums = getBankAccountSums(app)
 
 		_, _, yLabel := organise(stocksData, checkingData, savingsData)
 
@@ -209,6 +274,8 @@ func NewGeneralScreen(app fyne.App) *fyne.Container {
 
 		totalItem.SetText(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
 
+		sumsTable.Refresh()
+
 	})
 
 	reloadButton.Icon = theme.ViewRefreshIcon()
@@ -218,6 +285,7 @@ func NewGeneralScreen(app fyne.App) *fyne.Container {
 		container.NewBorder(nil, nil, nil, reloadButton),
 		nil,
 		nil,
+		sumsTable,
 	)
 }
 

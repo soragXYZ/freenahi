@@ -4,14 +4,17 @@
 [![Fyne](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fgithub.com%2FErikKalkoken%2Fevebuddy%2Fblob%2Fmain%2Fgo.mod&search=fyne%5C.io%5C%2Ffyne%5C%2Fv2%20(v%5Cd*%5C.%5Cd*%5C.%5Cd*)&replace=%241&label=Fyne&cacheSeconds=https%3A%2F%2Fgithub.com%2Ffyne-io%2Ffyne)](https://github.com/fyne-io/fyne)
 [![GitHub License](https://img.shields.io/github/license/soragXYZ/freenahi)](https://github.com/soragXYZ/freenahi?tab=MIT-1-ov-file#readme)
 
+<br/>
 
 A lightweight cross-platform desktop application for personal finance.
 
 **Please consult the [documentation website](https://soragxyz.github.io/freenahi/)**
 
+<br/>
+
 ## Screenshots
 
-<img src="https://github.com/user-attachments/assets/043a52e6-c024-48aa-b809-7749af986d83" width="400" height="360">
-<img src="https://github.com/user-attachments/assets/2cdde337-8862-419f-99a1-24d13f646912" width="400" height="360">
-<img src="https://github.com/user-attachments/assets/4126a397-58da-441d-99da-e63aa4058cb8" width="400" height="360">
-<img src="https://github.com/user-attachments/assets/fdca4bd4-3f7b-459a-b2a3-8fb52e1b02ab" width="400" height="360">
+<img src="https://github.com/user-attachments/assets/9da6b268-551f-414a-8379-cf57678c3f65" width="400" height="302">
+<img src="https://github.com/user-attachments/assets/da7c1b39-7202-432f-aac2-42a29276d1a6" width="400" height="302">
+<img src="https://github.com/user-attachments/assets/02060a2c-f25f-4037-ab1d-d414550ae54a" width="400" height="302">
+<img src="https://github.com/user-attachments/assets/66c13e08-d629-48b7-9993-431bf8cf9835" width="400" height="302">
