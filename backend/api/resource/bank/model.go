@@ -29,6 +29,11 @@ type BankAccount struct {
 	Usage              string  `json:"usage"`
 }
 
+type BankAccountSum struct {
+	Account_type string  `json:"type"`
+	Value        float32 `json:"value"`
+}
+
 type BankAccountWebhook struct {
 	Account_id    int                       `json:"id"`
 	User_id       int                       `json:"id_user"`

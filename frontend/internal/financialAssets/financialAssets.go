@@ -47,6 +47,11 @@ type HistoryValuePoint struct {
 	DateValuation time.Time
 }
 
+type BankAccountSum struct {
+	Account_type string  `json:"type"`
+	Value        float32 `json:"value"`
+}
+
 const ( // for savings and bank account
 	nameColumn int = iota
 	valueColumn
@@ -54,6 +59,10 @@ const ( // for savings and bank account
 	numberOfColumns
 
 	unselectTime = 200 * time.Millisecond
+
+	// https://docs.powens.com/api-reference/products/data-aggregation/bank-account-types#accounttypename-values
+	// Get every stock and fund possible type
+	stocksType = "article83,capitalisation,crowdlending,lifeinsurance,madelin,market,pea,pee,per,perco,perp,rsp"
 )
 
 const ( // SF = stocks and funds
@@ -136,10 +145,6 @@ func NewFinancialAssetsScreen(app fyne.App, win fyne.Window) *container.AppTabs 
 
 func NewGeneralScreen(app fyne.App) *fyne.Container {
 
-	// https://docs.powens.com/api-reference/products/data-aggregation/bank-account-types#accounttypename-values
-	// Get every stock and fund possible type
-	stocksType := "article83,capitalisation,crowdlending,lifeinsurance,madelin,market,pea,pee,per,perco,perp,rsp"
-
 	stocksData := GetHistoryValues(app, 0, "all", stocksType)
 	checkingData := GetHistoryValues(app, 0, "all", "savings")
 	savingsData := GetHistoryValues(app, 0, "all", "checking")
@@ -162,6 +167,12 @@ func NewGeneralScreen(app fyne.App) *fyne.Container {
 
 	graphContainer.Add(container.NewCenter(topGraphRadio))
 	graphContainer.Add(graphItem)
+
+	// Create list for sums by type
+	sums := getBankAccountSums(app)
+	for _, sum := range sums {
+		fmt.Println(sum)
+	}
 
 	total := 0.0
 
@@ -896,8 +907,6 @@ func generateMainGraphRadio(
 	radio.Selected = lang.L("All")
 	radio.OnChanged = func(value string) {
 
-		stocksType := "article83,capitalisation,crowdlending,lifeinsurance,madelin,market,pea,pee,per,perco,perp,rsp"
-
 		var stocksData, checkingData, savingsData []HistoryValuePoint
 		switch value {
 		case "":
@@ -1166,4 +1175,35 @@ func GetHistoryValues(app fyne.App, account int, period, accountType string) []H
 	}
 
 	return values
+}
+
+// ToDo: modify the function to return an error and display it if sth went wrong in the backend
+// Call the backend endpoint "/bank_account/sum/" and retrieve bank account sums
+func getBankAccountSums(app fyne.App) []BankAccountSum {
+
+	backendIp := app.Preferences().StringWithFallback(settings.PreferenceBackendIP, settings.BackendIPDefault)
+	backendProtocol := app.Preferences().StringWithFallback(settings.PreferenceBackendProtocol, settings.BackendProtocolDefault)
+	backendPort := app.Preferences().StringWithFallback(settings.PreferenceBackendPort, settings.BackendPortDefault)
+
+	url := fmt.Sprintf("%s://%s:%s/bank_account/sum/", backendProtocol, backendIp, backendPort)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot run http get request")
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		helper.Logger.Error().Err(err).Msg("ReadAll error")
+		return nil
+	}
+
+	var accounts []BankAccountSum
+	if err := json.Unmarshal(body, &accounts); err != nil {
+		helper.Logger.Error().Err(err).Msg("Cannot unmarshal bank account sums")
+		return nil
+	}
+
+	return accounts
 }

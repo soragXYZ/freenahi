@@ -29,6 +29,7 @@ func New() *http.ServeMux {
 	router.HandleFunc("POST /webhook/connection_synced/", middleware.Log(middleware.Whitelisted(webhook.ConnectionSynced)))
 
 	router.HandleFunc("GET /bank_account/", middleware.Log(middleware.Whitelisted(bank.GetAccounts)))
+	router.HandleFunc("GET /bank_account/sum/", middleware.Log(middleware.Whitelisted(bank.GetAccountSum)))
 
 	router.HandleFunc("GET /investment/", middleware.Log(middleware.Whitelisted(investment.GetInvestments)))
 

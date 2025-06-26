@@ -75,3 +75,67 @@ func GetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write(jsonBody)
 }
+
+// Return the total amount for every type of bankAccount
+func GetAccountSum(w http.ResponseWriter, r *http.Request) {
+
+	var accountSums []BankAccountSum
+
+	var rows *sql.Rows
+	var err error
+
+	query := "SELECT account_type, SUM(balance) FROM bankAccount GROUP BY account_type"
+	rows, err = config.DB.Query(query)
+
+	if err != nil {
+		config.Logger.Error().Err(err).Msg(query)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var account BankAccountSum
+		if err := rows.Scan(&account.Account_type, &account.Value); err != nil {
+			config.Logger.Error().Err(err).Msg("Cannot scan row")
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+		accountSums = append(accountSums, account)
+	}
+	if err := rows.Err(); err != nil {
+		config.Logger.Error().Err(err).Msg("Error in rows")
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	// Some types are identical for market, group them
+	groupedAccountSums := []BankAccountSum{
+		{Account_type: "Stocks and funds"},
+		{Account_type: "Bank accounts"},
+		{Account_type: "Savings books"},
+	}
+
+	config.Logger.Trace().Msg("Grouping sums")
+
+	for _, accountSum := range accountSums {
+		config.Logger.Trace().Str("type", accountSum.Account_type).Float32("value", accountSum.Value).Msg("")
+
+		switch accountSum.Account_type {
+		case "article83", "capitalisation", "crowdlending", "lifeinsurance", "madelin", "market", "pea", "pee", "per", "perco", "perp", "rsp":
+			groupedAccountSums[0].Value += accountSum.Value
+		case "checking":
+			groupedAccountSums[1].Value += accountSum.Value
+		case "savings":
+			groupedAccountSums[2].Value += accountSum.Value
+		}
+	}
+
+	jsonBody, err := json.Marshal(groupedAccountSums)
+	if err != nil {
+		config.Logger.Error().Err(err).Msg("Cannot marshal accounts")
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	w.Write(jsonBody)
+}
