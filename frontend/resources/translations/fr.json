@@ -12,6 +12,7 @@
 	"Application": "Application",
 	"arbitrage": "arbitrage",
 	"article83": "article83",
+	"Backend configuration": "Configuration du serveur",
 	"Backend Error": "Erreur serveur",
 	"Backend IP details": "Choisir l'IP du serveur",
 	"Backend IP placeholder": "Doit être de l'IPv4. Ex: 192.168.1.1",

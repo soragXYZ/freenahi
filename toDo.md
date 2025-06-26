@@ -16,7 +16,6 @@
 
 * Frontend
 - Loans: deal with revolving credit
-- Add a tutorial to create the backend and Powens account
 - Tx: add filter and reload options
 - Do not load everything as start up (Tabs mechanism), use tab on selected to fill the data ?
 - Add a possibility to export as PDF ?
@@ -25,5 +24,4 @@
 - Wealth view: replace bank original name by its icon
 - Reload button for asset should reload graphs
 - If backend is down or no value to display, display sth to indicate no value
-- Finish general screen: add reload button, and display value for each type (list / table ?)
-- Use fyne.CanvasObject instead of *canvasText *canvasImage ?
+- Finish general screen: add display value for each type (list / table ?)

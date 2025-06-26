@@ -145,38 +145,28 @@ func NewGeneralScreen(app fyne.App) *fyne.Container {
 	savingsData := GetHistoryValues(app, 0, "all", "checking")
 
 	labels, xLabel, yLabel := organise(stocksData, checkingData, savingsData)
+	graphSize := fyne.NewSize(800, 450)
+
+	graphItem := helper.DrawStackedLines(
+		labels,
+		xLabel,
+		yLabel,
+		graphSize,
+		"Stacked general line graph",
+	)
 
 	// Create the graph container, containing the graph and a radio button which can update it
 	graphContainer := container.NewVBox()
-	graphSize := fyne.NewSize(800, 450)
 
-	var graphItem *canvas.Image
-	noDataItem := helper.DrawNoData()
+	topGraphRadio := generateMainGraphRadio(app, graphItem, graphSize, graphContainer)
 
-	if len(labels) != 0 && len(xLabel) != 0 && len(yLabel) != 0 {
-		graphItem = helper.DrawStackedLines(
-			labels,
-			xLabel,
-			yLabel,
-			graphSize,
-			"Stacked general line graph",
-		)
-	}
-
-	topGraphRadio := generateMainGraphRadio(app, graphItem, noDataItem, graphSize, graphContainer)
 	graphContainer.Add(container.NewCenter(topGraphRadio))
-
-	if len(labels) != 0 && len(xLabel) != 0 && len(yLabel) != 0 {
-		graphContainer.Add(graphItem)
-	} else {
-		graphContainer.Add(noDataItem)
-	}
+	graphContainer.Add(graphItem)
 
 	total := 0.0
 
 	// Total is the sum of today s value for every type
 	for _, invest := range yLabel {
-		fmt.Println(invest[len(invest)-1])
 		total += invest[len(invest)-1]
 	}
 
@@ -191,9 +181,30 @@ func NewGeneralScreen(app fyne.App) *fyne.Container {
 		container.NewVBox(layout.NewSpacer(), totalItem, layout.NewSpacer()),
 	)
 
+	// Reload button reloads data by querying the backend
+	reloadButton := widget.NewButton("", func() {
+
+		stocksData := GetHistoryValues(app, 0, "all", stocksType)
+		checkingData := GetHistoryValues(app, 0, "all", "savings")
+		savingsData := GetHistoryValues(app, 0, "all", "checking")
+
+		_, _, yLabel := organise(stocksData, checkingData, savingsData)
+
+		total = 0.0 // Recalculate
+
+		for _, invest := range yLabel {
+			total += invest[len(invest)-1]
+		}
+
+		totalItem.SetText(fmt.Sprintf("%s: %s", lang.L("Total"), helper.ValueSpacer(fmt.Sprintf("%.2f", total))))
+
+	})
+
+	reloadButton.Icon = theme.ViewRefreshIcon()
+
 	return container.NewBorder(
 		container.NewCenter(container.NewHBox(graphContainer, totalContainer)),
-		nil,
+		container.NewBorder(nil, nil, nil, reloadButton),
 		nil,
 		nil,
 	)
@@ -461,7 +472,7 @@ func NewStocksAndFundsScreen(app fyne.App) *fyne.Container {
 			investAssetAccordion.RemoveIndex(0)
 		}
 
-		total = 0
+		total = 0.0 // Recalculate
 
 		// Refill the map and recalculate total
 		for _, invest := range invests {
@@ -874,8 +885,7 @@ func organise(stocksData, checkingData, savingsData []HistoryValuePoint) ([]stri
 // Create a radio button for the main / general graph which update it when selected
 func generateMainGraphRadio(
 	app fyne.App,
-	graphItem *canvas.Image,
-	noDataItem *canvas.Text,
+	graphItem fyne.CanvasObject,
 	size fyne.Size,
 	graphContainer *fyne.Container,
 ) *widget.RadioGroup {
@@ -917,20 +927,17 @@ func generateMainGraphRadio(
 
 		// Remove the older graph, draw again, then replace
 		graphContainer.Remove(graphItem)
-		graphContainer.Remove(noDataItem)
 
-		if len(labels) != 0 && len(xLabel) != 0 && len(yLabel) != 0 {
-			graphItem = helper.DrawStackedLines(
-				labels,
-				xLabel,
-				yLabel,
-				size,
-				"Stacked general line graph",
-			)
-			graphContainer.Add(graphItem)
-		} else {
-			graphContainer.Add(noDataItem)
-		}
+		graphItem = helper.DrawStackedLines(
+			labels,
+			xLabel,
+			yLabel,
+			size,
+			"Stacked general line graph",
+		)
+
+		graphContainer.Add(graphItem)
+
 	}
 
 	return radio

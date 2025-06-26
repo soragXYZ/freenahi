@@ -54,6 +54,10 @@ func NewTopMenu(app fyne.App, win fyne.Window) *fyne.MainMenu {
 			u, _ := url.Parse("https://soragxyz.github.io/freenahi/getStarted/powens/")
 			_ = app.OpenURL(u)
 		}),
+		fyne.NewMenuItem(lang.L("Backend configuration"), func() {
+			u, _ := url.Parse("https://soragxyz.github.io/freenahi/getStarted/backend/")
+			_ = app.OpenURL(u)
+		}),
 	)
 
 	// Add new entries here if needed
